@@ -29,6 +29,13 @@ select{width:100%;padding:10px;border-radius:10px;background:#2c2c2e;color:var(-
 .sw{width:52px;height:30px;border-radius:15px;background:#3a3a3c;border:0;position:relative;flex:none}
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s}
 .sw.on{background:#34c759}.sw.on::after{left:25px}
+.note{color:var(--mute);font-size:13px;margin:4px 0 10px}
+.seg{display:flex;background:#2c2c2e;border-radius:10px;padding:3px;margin-bottom:10px}
+.seg button{flex:1;padding:9px;border:0;border-radius:8px;background:none;color:var(--fg);font-size:14px}
+.seg button.on{background:var(--acc);color:#111;font-weight:600}
+.tl{display:flex;gap:8px;align-items:center;margin:8px 0}.tl span{width:64px;color:var(--mute);font-size:14px}
+.tl input,.tl select{flex:1;min-width:0;padding:9px;border-radius:10px;background:#2c2c2e;color:var(--fg);border:1px solid var(--line);font-size:15px}
+.tl button{padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:#2c2c2e;color:var(--fg)}
 .hide{display:none}#st{color:var(--mute);font-size:12px;text-align:center;margin-top:14px}
 </style></head><body><main>
 <h1>QuartzLED <button id="pw" class="sw" aria-label="Aç/Kapa"></button></h1>
@@ -51,10 +58,23 @@ select{width:100%;padding:10px;border-radius:10px;background:#2c2c2e;color:var(-
 <h2>Zamanlayıcı</h2><div class="card">
 <label>Kapanma <span id="tmv"></span></label>
 <div class="row" id="tm"></div>
-<label style="margin-top:12px">Gün doğumu <span>karanlıktan aydınlığa</span></label>
-<div class="row" id="sr"></div>
-<label style="margin-top:12px">Gün batımı <span>aydınlıktan karanlığa, sonra kapanır</span></label>
-<div class="row" id="ss"></div></div>
+</div>
+
+<h2>Ayılma</h2><div class="card">
+<div class="tg">Otomatik kurulum <button id="arm" class="sw"></button></div>
+<p class="note">Açıkken ışık kapalı olsa bile her gün gün doğumunda aydınlanır, gün batımında kararıp kapanır.</p>
+<div class="seg" id="var"><button data-v="interval">Aralıklı</button><button data-v="auto">Otomatik</button></div>
+<div id="vi">
+ <div class="tl"><span>Uyanış</span><input id="wk" type="time"><select id="wkd"></select></div>
+ <div class="tl"><span>Uyku</span><input id="sl" type="time"><select id="sld"></select></div>
+</div>
+<div id="va">
+ <div class="row"><button id="geo">📍 Konumumu kullan</button></div>
+ <div class="tl"><input id="lat" placeholder="Enlem" inputmode="decimal"><input id="lon" placeholder="Boylam" inputmode="decimal"><button id="lls">Kaydet</button></div>
+</div>
+<p class="note" id="cinfo"></p>
+<label style="margin-top:10px">Hemen başlat: gün doğumu</label><div class="row" id="sr"></div>
+<label style="margin-top:10px">Hemen başlat: gün batımı</label><div class="row" id="ss"></div></div>
 <p id="st"></p>
 </main><script>
 const FX={solid:"Sabit",rainbow:"Gökkuşağı",colorloop:"Renk Döngüsü",breathe:"Nefes",chase:"Kayan Işık",
@@ -70,7 +90,7 @@ const INT={rainbow:"Tekrar",colorloop:"Pastellik",chase:"Kuyruk",scanner:"Geniş
  sparkle:"Işıltı",pulse:"Halka"};
 const C1=new Set(["solid","breathe","chase","scanner","meteor","theater","twocolor","gradient","candle","twinkle",
  "sparkle","pulse","heartbeat"]),C2=new Set(["theater","twocolor","gradient"]),PF=new Set(["wave","noise","confetti","juggle"]);
-const $=id=>document.getElementById(id);let S={},busy=0,timer;
+const $=id=>document.getElementById(id);let S={},C={},busy=0,timer;
 const toVal=p=>(Math.pow(81,p)-1)/80,toPos=v=>Math.log(1+80*v)/Math.log(81);
 const hex=c=>"#"+c.map(v=>v.toString(16).padStart(2,"0")).join(""),rgb=h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16));
 const pct=v=>Math.round(v/10)+"%",mmss=s=>Math.floor(s/60)+" dk "+(s%60)+" sn";
@@ -88,18 +108,42 @@ function render(s){S=s;$("pw").classList.toggle("on",s.on);$("rev").classList.to
 async function api(body,cmd="set"){const r=await fetch("/api",body?{method:"POST",headers:{"Content-Type":"application/json"},
  body:JSON.stringify(Object.assign({v:1,cmd,source:"web"},body))}:{});const j=await r.json();
  if(j.state)render(j.state);if(j.presets)presets(j.presets);$("st").textContent=j.error?("Hata: "+j.error):"";return j}
+function crender(c){C=c;$("arm").classList.toggle("on",c.armed);
+ for(const b of $("var").children)b.classList.toggle("on",b.dataset.v==c.variant);
+ $("vi").classList.toggle("hide",c.variant!="interval");$("va").classList.toggle("hide",c.variant!="auto");
+ if(document.activeElement.tagName!="INPUT"){$("wk").value=c.wake;$("sl").value=c.sleep;
+  if(c.located){$("lat").value=c.lat;$("lon").value=c.lon}}
+ $("wkd").value=c.wake_dur;$("sld").value=c.sleep_dur;const t=c.today||{};
+ $("cinfo").textContent=!c.synced?"Saat henüz senkron değil…":(c.variant=="auto"&&!c.located)?"Konum gerekli.":
+  "Bugün: aydınlanma "+(t.rise_start||"–")+" → "+(t.rise_end||"–")+" · kararma "+(t.set_start||"–")+" → "+(t.set_end||"–")+
+  " · saat "+c.now+(c.armed?"":" · otomatik kurulum kapalı")}
+async function capi(body){const j=await api(body,"circadian");if(j.circadian)crender(j.circadian)}
+// Leaving a running sunrise/sunset without the plan armed: offer to arm it.
+async function guard(){if(!["sunrise","sunset"].includes(S.effect)||C.armed)return;
+ if(confirm("Ayılma otomatik kurulumu kapalı. Mod değişince bu geçiş biter ve ışık yarın kendiliğinden açılmaz.\n\nOtomatik kurulumu açayım mı?"))await capi({armed:true})}
 function send(body,delay=120){busy=1;clearTimeout(timer);timer=setTimeout(()=>api(body).finally(()=>busy=0),delay)}
 function btn(parent,label,key,fn){const b=document.createElement("button");b.textContent=label;b.dataset.k=key;
  b.onclick=fn;parent.appendChild(b);return b}
-function presets(p){const g=$("pre");g.innerHTML="";for(const n of p.builtin)btn(g,PRE[n]||n,n,()=>api({name:n},"preset"));
+function presets(p){const g=$("pre");g.innerHTML="";for(const n of p.builtin)btn(g,PRE[n]||n,n,async()=>{await guard();api({name:n},"preset")});
  for(const n of p.user){const b=btn(g,"★ "+n,n,()=>api({name:n},"preset"));const x=document.createElement("span");
   x.className="x";x.textContent="×";x.onclick=e=>{e.stopPropagation();if(confirm(n+" silinsin mi?"))api({delete:n},"preset")};
   b.appendChild(x)}}
-for(const k in FX)btn($("fx"),FX[k],k,()=>api({effect:k,on:true}));
+for(const k in FX)btn($("fx"),FX[k],k,async()=>{if(k!=S.effect)await guard();api({effect:k,on:true})});
 for(const k in PAL){const o=document.createElement("option");o.value=k;o.textContent=PAL[k];$("pal").appendChild(o)}
 for(const m of[15,30,60,120])btn($("tm"),m<60?m+" dk":m/60+" sa","",()=>api({minutes:m},"timer"));
 btn($("tm"),"İptal","",()=>api({minutes:0},"timer"));
 for(const m of[10,20,30]){btn($("sr"),m+" dk","",()=>api({minutes:m},"sunrise"));btn($("ss"),m+" dk","",()=>api({minutes:m},"sunset"))}
+for(const id of["wkd","sld"])for(const m of[10,15,20,30,45,60]){const o=document.createElement("option");o.value=m;o.textContent=m+" dk";$(id).appendChild(o)}
+$("arm").onclick=()=>capi({armed:!C.armed});
+for(const b of $("var").children)b.onclick=()=>capi({variant:b.dataset.v});
+$("wk").onchange=e=>capi({wake:e.target.value});$("sl").onchange=e=>capi({sleep:e.target.value});
+$("wkd").onchange=e=>capi({wake_dur:+e.target.value});$("sld").onchange=e=>capi({sleep_dur:+e.target.value});
+$("lls").onclick=()=>{const la=parseFloat($("lat").value.replace(",",".")),lo=parseFloat($("lon").value.replace(",","."));
+ if(isNaN(la)||isNaN(lo))return alert("Enlem ve boylamı sayı olarak girin (ör. 41.01 ve 28.97).");capi({lat:la,lon:lo})};
+$("geo").onclick=()=>{if(!window.isSecureContext||!navigator.geolocation)
+  return alert("Tarayıcı konumu yalnızca HTTPS üzerinden verir. Tailscale adresinden (:8443) açın ya da enlem/boylamı elle girin.");
+ navigator.geolocation.getCurrentPosition(p=>capi({lat:+p.coords.latitude.toFixed(4),lon:+p.coords.longitude.toFixed(4),variant:"auto"}),
+  e=>alert("Konum alınamadı: "+e.message),{timeout:15000})};
 $("pw").onclick=()=>api({on:!S.on});$("rev").onclick=()=>api({reverse:!S.reverse});$("mir").onclick=()=>api({mirror:!S.mirror});
 $("bri").oninput=e=>{$("briv").textContent=pct(e.target.value);send({bri:Math.max(1,Math.round(toVal(e.target.value/1000)*255)),on:true})};
 $("sp").oninput=e=>{const v=Math.round(toVal(e.target.value/1000)*1000);$("spv").textContent=v;send({speed:v})};
@@ -108,6 +152,6 @@ $("col").oninput=e=>send({color:rgb(e.target.value),on:true});$("col2").oninput=
 $("pal").onchange=e=>api({palette:e.target.value});
 $("savep").onclick=()=>{const n=prompt("Sahne adı:");if(n)api({save:n.trim()},"preset")};
 const poll=()=>document.hidden||busy||api().catch(()=>$("st").textContent="Bağlantı yok");
-api().catch(()=>$("st").textContent="Bağlantı yok");api({},"preset");setInterval(poll,4000);
+api().catch(()=>$("st").textContent="Bağlantı yok");api({},"preset");capi({});setInterval(poll,4000);setInterval(()=>document.hidden||capi({}),30000);
 document.addEventListener("visibilitychange",poll);
 </script></body></html>)HTML";

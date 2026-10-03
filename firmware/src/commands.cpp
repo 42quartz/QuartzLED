@@ -4,6 +4,7 @@
 #include <esp_system.h>
 
 #include "app.h"
+#include "circadian.h"
 #include "homekit.h"
 #include "led_engine.h"
 #include "mqtt.h"
@@ -216,6 +217,7 @@ void handle(JsonObjectConst req, JsonDocument& resp) {
   }
   else if (!strcmp(cmd, "scan")) doScan(resp);
   else if (!strcmp(cmd, "preset")) doPreset(req, resp);
+  else if (!strcmp(cmd, "circadian")) circadian::command(req, resp);
   else if (!strcmp(cmd, "timer")) {  // fade off after N minutes; 0 cancels
     app::setTimer(constrain(req["minutes"] | 0, 0, 24 * 60));
     resp["ok"] = true;
@@ -263,7 +265,7 @@ bool parseText(const char* line, JsonDocument& req, String& err) {
   String cmd(w);
   cmd.toLowerCase();
   int n;
-  if (cmd == "get" || cmd == "info" || cmd == "scan" || cmd == "reboot" || cmd == "wifi" || cmd == "mqtt") req["cmd"] = cmd;
+  if (cmd == "get" || cmd == "info" || cmd == "scan" || cmd == "reboot" || cmd == "wifi" || cmd == "mqtt" || cmd == "circadian") req["cmd"] = cmd;
   else if (cmd == "forget") { req["cmd"] = "wifi"; req["forget"] = true; }
   else if (cmd == "on") req["on"] = true;
   else if (cmd == "off") req["on"] = false;

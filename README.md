@@ -17,6 +17,10 @@ Built on a **Deneyap Kart** (1st gen, ESP32-D0WD-V3, 4 MB flash, no PSRAM) drivi
 - **11 palettes**, secondary color, per-effect intensity, reverse, mirror-from-center
 - **12 built-in scenes** + up to 8 user scenes stored on the device
 - **Sleep timer**, **sunrise wake-up** and **sunset wind-down** (ends in deep red, then switches off)
+- **"Ayılma" daily light plan** that runs even while the light is off:
+  - *interval*: wake/sleep clock times with chosen ramp lengths
+  - *automatic*: follows the real sky at your location — civil dawn → sunrise, sunset → civil dusk
+    (on-device solar calculation, NTP time; location from the browser or entered by hand, never sent elsewhere)
 - **Power-budgeted brightness**: output is scaled inside a configurable mA budget, never clipped
 - **Low-end-dense sliders** everywhere (50 % slider = 10 % value) because perceived brightness and
   animation speed change fastest at the bottom
@@ -67,6 +71,7 @@ Every interface sends the same JSON:
 {"v":1,"cmd":"set","on":true,"bri":180,"color":[255,80,0],"effect":"noise","palette":"aurora","speed":120}
 {"v":1,"cmd":"preset","name":"okuma"}
 {"v":1,"cmd":"sunset","minutes":20}
+{"v":1,"cmd":"circadian","variant":"auto","lat":41.01,"lon":28.98,"armed":true}
 {"v":1,"cmd":"get"}
 ```
 
@@ -82,7 +87,8 @@ Tailscale Funnel, and tailnet-only access to the web UI with `tailscale serve`.
 QuartzLED, "MR Star" uygulamasıyla satılan USB LED şeritlerin kapalı kaynak kontrol kutusunu bir ESP32 ile
 değiştirir. Ev uygulaması / Siri, Home Assistant, Google Home, kart üzerinde web arayüzü, MQTT ve JSON API
 desteği vardır. 22 efekt, 11 palet, 12 hazır sahne, uyku zamanlayıcısı, gün doğumu ile uyanış ve gün batımı ile
-kararma içerir. Arayüzler Türkçedir.
+kararma içerir. "Ayılma" planı ışık kapalıyken bile her gün çalışır: aralıklı (saat belirlenir) ya da
+otomatik (konuma göre gerçek şafak/gün doğumu ve gün batımı/alacakaranlık). Arayüzler Türkçedir.
 
 ## License
 

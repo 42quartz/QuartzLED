@@ -269,9 +269,11 @@ void setState(const LedState& s) {
   }
 }
 
-void startSunrise(uint16_t minutes) {
-  sunriseMs = (uint32_t)max<uint16_t>(minutes, 1) * 60 * 1000;
-  sunriseStart = millis();
+void startSunrise(uint16_t minutes) { startRamp((uint32_t)max<uint16_t>(minutes, 1) * 60 * 1000, 0); }
+
+void startRamp(uint32_t totalMs, uint32_t elapsedMs) {
+  sunriseMs = max<uint32_t>(totalMs, 1000);
+  sunriseStart = millis() - min(elapsedMs, sunriseMs);
 }
 
 void blank() {
