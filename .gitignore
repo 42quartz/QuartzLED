@@ -1,0 +1,8 @@
+.venv/
+.pio-core/
+firmware/.pio/
+logs/
+backup/*.bin
+wled/*.bin
+.DS_Store
+__pycache__/
