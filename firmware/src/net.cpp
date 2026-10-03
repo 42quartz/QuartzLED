@@ -9,6 +9,7 @@
 #include "commands.h"
 #include "events.h"
 #include "homekit.h"
+#include "web_ui.h"
 
 // Wi-Fi association, mDNS and OTA are run by HomeSpan (homekit.cpp). This module stores the
 // credentials, reports connection events and serves the HTTP API on port 80.
@@ -99,7 +100,8 @@ void startHttp() {
     http.sendHeader("Access-Control-Allow-Headers", "Content-Type");
     http.send(204);
   });
-  http.onNotFound([] { http.send(404, "text/plain", "MiniBeyaz LED - API: /api\n"); });
+  http.on("/", HTTP_GET, [] { http.send_P(200, "text/html; charset=utf-8", kWebUi); });
+  http.onNotFound([] { http.send(404, "text/plain", "MiniBeyaz LED - UI: /  API: /api\n"); });
   http.begin();
   MDNS.addService("http", "tcp", 80);  // MDNS itself was started by HomeSpan
   MDNS.addServiceTxt("http", "tcp", "api", "/api");

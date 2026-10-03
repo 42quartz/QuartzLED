@@ -110,7 +110,7 @@ void setConfig(const LedConfig& c) {
   cfg = c;
   cfg.count = constrain(cfg.count, 1, LED_MAX);
   buildOrderMap(cfg.order);
-  FastLED.setMaxPowerInVoltsAndMilliamps(5, cfg.powerMa);
+  // Power limiting is done in loop() so brightness scales inside the budget instead of clipping at it.
   // Blank pixels beyond the new length before shrinking the controller.
   if (cfg.count < old) {
     fill_solid(wire, LED_MAX, CRGB::Black);
@@ -133,7 +133,7 @@ void loop() {
   uint32_t dt = now - lastFrame;
   lastFrame = now;
 
-  phase += dt * (st.speed + 8) / 4;
+  phase += dt * st.speed / 4;  // speed 0 freezes the animation
 
   float target = st.on || st.probe >= 0 ? (st.probe >= 0 ? max<uint8_t>(st.bri, 96) : st.bri) : 0;
   float step = dt * 0.4f;  // ~650 ms full-scale fade
@@ -146,7 +146,13 @@ void loop() {
     const uint8_t* p = frame[i].raw;
     wire[i] = CRGB(p[orderMap[0]], p[orderMap[1]], p[orderMap[2]]);
   }
-  FastLED.setBrightness((uint8_t)curBri);
+  // Perceptual curve, then scale into the brightest level the power budget allows for this frame.
+  uint8_t user = (uint8_t)curBri;
+  uint16_t perceived = user ? max<uint16_t>(1, (uint16_t)user * user / 255) : 0;
+  uint8_t ceiling = calculate_max_brightness_for_power_vmA(wire, n, 255, 5, cfg.powerMa);
+  uint8_t out = perceived * ceiling / 255;
+  if (user && !out) out = 1;
+  FastLED.setBrightness(out);
   FastLED.show();
 }
 

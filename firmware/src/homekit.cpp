@@ -14,7 +14,8 @@ LedState lastSynced;  // last state mirrored to HomeKit; avoids echoing our own 
 bool haveSynced = false;
 
 bool sameState(const LedState& a, const LedState& b) {
-  return a.on == b.on && a.bri == b.bri && a.r == b.r && a.g == b.g && a.b == b.b && a.effect == b.effect;
+  return a.on == b.on && a.bri == b.bri && a.r == b.r && a.g == b.g && a.b == b.b && a.effect == b.effect &&
+         a.speed == b.speed;
 }
 
 bool usesColor(uint8_t fx) { return fx == FX_SOLID || fx == FX_BREATHE || fx == FX_CHASE || fx == FX_TWINKLE; }
@@ -91,7 +92,41 @@ struct EffectSwitch : Service::Switch {
   }
 };
 
+// HomeKit lights have no speed; a fan's rotation slider stands in for it (0-100% = speed 0-1000).
+struct SpeedFan : Service::Fan {
+  SpanCharacteristic *active, *rate;
+  uint16_t lastNonZero = 300;
+
+  SpeedFan() {
+    uint16_t sp = app::state().speed;
+    if (sp) lastNonZero = sp;
+    active = new Characteristic::Active(sp > 0);
+    rate = new Characteristic::RotationSpeed(sp / 10);
+    rate->setRange(0, 100, 1);
+    new Characteristic::ConfiguredName("Efekt Hızı");
+  }
+
+  boolean update() override {
+    JsonDocument req;
+    if (rate->updated()) req["speed"] = rate->getNewVal() * 10;
+    if (active->updated()) {
+      if (!active->getNewVal()) req["speed"] = 0;  // off = freeze the animation
+      else if (!rate->updated()) req["speed"] = lastNonZero;
+    }
+    if (req["speed"].as<int>() > 0) lastNonZero = req["speed"].as<int>();
+    return apply(req);
+  }
+
+  void push(const LedState& s) {
+    if (s.speed) lastNonZero = s.speed;
+    int pct = (s.speed + 5) / 10;
+    if (active->getVal() != (s.speed > 0)) active->setVal(s.speed > 0);
+    if (s.speed && rate->getVal() != pct) rate->setVal(pct);
+  }
+};
+
 Light* light = nullptr;
+SpeedFan* fan = nullptr;
 std::vector<EffectSwitch*> switches;
 
 }  // namespace
@@ -121,6 +156,7 @@ void begin(const char* ssid, const char* pass) {
       {FX_CHASE, "Kayan Işık"}, {FX_TWINKLE, "Pırıltı"},
   };
   for (auto& s : kSwitches) switches.push_back(new EffectSwitch(s.fx, s.label));
+  fan = new SpeedFan();
 }
 
 void loop() {
@@ -128,6 +164,7 @@ void loop() {
   const LedState& s = app::state();
   if (!light || (haveSynced && sameState(s, lastSynced))) return;
   light->push(s);
+  fan->push(s);
   for (auto* sw : switches) sw->push(s);
   lastSynced = s;
   haveSynced = true;
