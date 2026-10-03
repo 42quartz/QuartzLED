@@ -221,13 +221,16 @@ void handle(JsonObjectConst req, JsonDocument& resp) {
     resp["ok"] = true;
     writeState(resp["state"].to<JsonObject>());
   }
-  else if (!strcmp(cmd, "sunrise")) {  // wake-up ramp over N minutes
-    led::startSunrise(constrain(req["minutes"] | 20, 1, 120));
+  else if (!strcmp(cmd, "sunrise") || !strcmp(cmd, "sunset")) {  // ramp over N minutes
+    bool rise = !strcmp(cmd, "sunrise");
+    uint16_t minutes = constrain(req["minutes"] | 20, 1, 120);
+    led::startSunrise(minutes);
     LedState s = app::state();
-    s.effect = FX_SUNRISE;
+    s.effect = rise ? FX_SUNRISE : FX_SUNSET;
     s.on = true;
     if (s.bri < 200) s.bri = 255;
     app::commitState(s);
+    app::setTimer(rise ? 0 : minutes);  // sunset ends dark, then switches off
     resp["ok"] = true;
     writeState(resp["state"].to<JsonObject>());
   }
@@ -288,7 +291,7 @@ bool parseText(const char* line, JsonDocument& req, String& err) {
   }
   else if (cmd == "intensity") { if (!num("intensity", n)) return false; req["intensity"] = n; }
   else if (cmd == "timer") { if (!num("minutes", n)) return false; req["cmd"] = "timer"; req["minutes"] = n; }
-  else if (cmd == "sunrise") { if (!num("minutes", n)) return false; req["cmd"] = "sunrise"; req["minutes"] = n; }
+  else if (cmd == "sunrise" || cmd == "sunset") { if (!num("minutes", n)) return false; req["cmd"] = cmd; req["minutes"] = n; }
   else if (cmd == "rgb2") {
     int r, g, b;
     if (!num("r", r) || !num("g", g) || !num("b", b)) return false;

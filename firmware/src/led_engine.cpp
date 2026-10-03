@@ -6,7 +6,7 @@ const char* const kEffects[FX_COUNT] = {
     "solid", "rainbow", "chase", "breathe", "fire", "twinkle", "marks",
     "colorloop", "gradient", "scanner", "theater", "wave", "noise", "confetti",
     "candle", "sparkle", "police", "pulse", "juggle", "meteor", "sunrise",
-    "twocolor", "heartbeat"};
+    "twocolor", "heartbeat", "sunset"};
 const char* const kPalettes[PAL_COUNT] = {"rainbow", "party", "ocean", "lava", "forest", "heat",
                                           "cloud", "sunset", "aurora", "pastel", "colors"};
 const char* const kChips[CHIP_COUNT] = {"ws2812", "ws2811_400", "ucs1903"};
@@ -37,8 +37,9 @@ DEFINE_GRADIENT_PALETTE(gpAurora){0, 0, 20, 10, 60, 0, 200, 80, 120, 20, 255, 16
                                   170, 80, 40, 200, 220, 150, 0, 160, 255, 0, 20, 10};
 DEFINE_GRADIENT_PALETTE(gpPastel){0, 255, 150, 180, 64, 255, 220, 150, 128, 150, 255, 200,
                                   192, 150, 190, 255, 255, 255, 150, 180};
-DEFINE_GRADIENT_PALETTE(gpSunrise){0, 0, 0, 0, 60, 60, 0, 0, 130, 200, 40, 0,
-                                   190, 255, 120, 20, 255, 255, 200, 140};
+// Starts as a faint, already visible deep red (no blue: sunset end stays melatonin-friendly).
+DEFINE_GRADIENT_PALETTE(gpSunrise){0, 24, 1, 0, 50, 90, 6, 0, 120, 200, 40, 0,
+                                   185, 255, 120, 20, 255, 255, 200, 140};
 
 namespace led {
 namespace {
@@ -209,9 +210,11 @@ void render(uint16_t n) {
         if (head - j >= 0 && head - j < n) frame[head - j] = c;
       break;
     }
-    case FX_SUNRISE: {  // dark -> red -> orange -> warm white over sunriseMs
+    case FX_SUNRISE:    // dark -> red -> orange -> warm white over sunriseMs
+    case FX_SUNSET: {   // the same ramp backwards
       uint32_t el = millis() - sunriseStart;
       uint8_t p = el >= sunriseMs ? 255 : (uint8_t)((uint64_t)el * 255 / sunriseMs);
+      if (st.effect == FX_SUNSET) p = 255 - p;
       fill_solid(frame, n, ColorFromPalette(CRGBPalette16(gpSunrise), p, 255, LINEARBLEND));
       break;
     }
@@ -260,7 +263,7 @@ void setConfig(const LedConfig& c) {
 void setState(const LedState& s) {
   st = s;
   if (st.effect != lastEffect) {
-    if (st.effect == FX_SUNRISE) sunriseStart = millis();
+    if (st.effect == FX_SUNRISE || st.effect == FX_SUNSET) sunriseStart = millis();
     if (st.effect == FX_FIRE) memset(heat, 0, sizeof(heat));
     lastEffect = st.effect;
   }

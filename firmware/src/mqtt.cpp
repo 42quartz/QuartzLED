@@ -172,13 +172,13 @@ void announce() {
   announceSwitch("reverse", "Ters Yön", "mdi:swap-horizontal", "reverse");
   announceSwitch("mirror", "Ortadan Aynala", "mdi:arrow-expand-horizontal", "mirror");
 
-  {  // sunrise button
+  for (bool rise : {true, false}) {  // sunrise / sunset buttons
     JsonDocument d;
-    addCommon(d, "Gün Doğumu (20 dk)", "sunrise");
+    addCommon(d, rise ? "Gün Doğumu (20 dk)" : "Gün Batımı (20 dk)", rise ? "sunrise" : "sunset");
     d["cmd_t"] = topic("cmd");
-    d["pl_prs"] = "{\"v\":1,\"cmd\":\"sunrise\",\"minutes\":20}";
-    d["icon"] = "mdi:weather-sunset-up";
-    publishJson(discoveryTopic("button", "sunrise"), d, true);
+    d["pl_prs"] = rise ? "{\"v\":1,\"cmd\":\"sunrise\",\"minutes\":20}" : "{\"v\":1,\"cmd\":\"sunset\",\"minutes\":20}";
+    d["icon"] = rise ? "mdi:weather-sunset-up" : "mdi:weather-sunset-down";
+    publishJson(discoveryTopic("button", rise ? "sunrise" : "sunset"), d, true);
   }
 
   for (auto& l : kPresetLabels) announceScene(l.id, l.tr);

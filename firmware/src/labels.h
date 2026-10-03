@@ -15,7 +15,7 @@ static const Label kEffectLabels[] = {
     {"twocolor", "İki Renk"}, {"gradient", "Gradyan"}, {"wave", "Dalga"}, {"noise", "Akış"},
     {"confetti", "Konfeti"}, {"juggle", "Hokkabaz"}, {"fire", "Ateş"}, {"candle", "Mum"},
     {"twinkle", "Pırıltı"}, {"sparkle", "Işıltı"}, {"pulse", "Nabız"}, {"heartbeat", "Kalp Atışı"},
-    {"police", "Polis"}, {"sunrise", "Gün Doğumu"},
+    {"police", "Polis"}, {"sunrise", "Gün Doğumu"}, {"sunset", "Gün Batımı"},
 };
 
 static const Label kPaletteLabels[] = {
@@ -26,7 +26,7 @@ static const Label kPaletteLabels[] = {
 
 static const Label kPresetLabels[] = {
     {"okuma", "Okuma"}, {"odak", "Odak"}, {"film", "Film"}, {"gece", "Gece Lambası"},
-    {"rahat", "Rahatlama"}, {"kutup", "Kuzey Işıkları"}, {"gunbatimi", "Gün Batımı"},
+    {"rahat", "Rahatlama"}, {"kutup", "Kuzey Işıkları"}, {"gunbatimi", "Alacakaranlık"},
     {"somine", "Şömine"}, {"mum", "Mum Işığı"}, {"romantik", "Romantik"}, {"parti", "Parti"},
     {"disko", "Disko"},
 };

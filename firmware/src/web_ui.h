@@ -51,18 +51,20 @@ select{width:100%;padding:10px;border-radius:10px;background:#2c2c2e;color:var(-
 <h2>Zamanlayıcı</h2><div class="card">
 <label>Kapanma <span id="tmv"></span></label>
 <div class="row" id="tm"></div>
-<label style="margin-top:12px">Gün doğumu ile uyanış</label>
-<div class="row" id="sr"></div></div>
+<label style="margin-top:12px">Gün doğumu <span>karanlıktan aydınlığa</span></label>
+<div class="row" id="sr"></div>
+<label style="margin-top:12px">Gün batımı <span>aydınlıktan karanlığa, sonra kapanır</span></label>
+<div class="row" id="ss"></div></div>
 <p id="st"></p>
 </main><script>
 const FX={solid:"Sabit",rainbow:"Gökkuşağı",colorloop:"Renk Döngüsü",breathe:"Nefes",chase:"Kayan Işık",
  scanner:"Tarayıcı",meteor:"Meteor",theater:"Tiyatro",twocolor:"İki Renk",gradient:"Gradyan",wave:"Dalga",
  noise:"Akış",confetti:"Konfeti",juggle:"Hokkabaz",fire:"Ateş",candle:"Mum",twinkle:"Pırıltı",sparkle:"Işıltı",
- pulse:"Nabız",heartbeat:"Kalp Atışı",police:"Polis",sunrise:"Gün Doğumu"};
+ pulse:"Nabız",heartbeat:"Kalp Atışı",police:"Polis",sunrise:"Gün Doğumu",sunset:"Gün Batımı"};
 const PAL={rainbow:"Gökkuşağı",party:"Parti",ocean:"Okyanus",lava:"Lav",forest:"Orman",heat:"Isı",cloud:"Bulut",
  sunset:"Gün Batımı",aurora:"Kuzey Işıkları",pastel:"Pastel",colors:"Renklerim"};
 const PRE={okuma:"Okuma",odak:"Odak",film:"Film",gece:"Gece Lambası",rahat:"Rahatlama",kutup:"Kuzey Işıkları",
- gunbatimi:"Gün Batımı",somine:"Şömine",mum:"Mum Işığı",romantik:"Romantik",parti:"Parti",disko:"Disko"};
+ gunbatimi:"Alacakaranlık",somine:"Şömine",mum:"Mum Işığı",romantik:"Romantik",parti:"Parti",disko:"Disko"};
 const INT={rainbow:"Tekrar",colorloop:"Pastellik",chase:"Kuyruk",scanner:"Genişlik",meteor:"Boyut",twocolor:"Blok",
  wave:"Tekrar",noise:"Doku",confetti:"Yoğunluk",juggle:"Nokta",fire:"Kıvılcım",candle:"Titreme",twinkle:"Yoğunluk",
  sparkle:"Işıltı",pulse:"Halka"};
@@ -97,7 +99,7 @@ for(const k in FX)btn($("fx"),FX[k],k,()=>api({effect:k,on:true}));
 for(const k in PAL){const o=document.createElement("option");o.value=k;o.textContent=PAL[k];$("pal").appendChild(o)}
 for(const m of[15,30,60,120])btn($("tm"),m<60?m+" dk":m/60+" sa","",()=>api({minutes:m},"timer"));
 btn($("tm"),"İptal","",()=>api({minutes:0},"timer"));
-for(const m of[10,20,30])btn($("sr"),m+" dk","",()=>api({minutes:m},"sunrise"));
+for(const m of[10,20,30]){btn($("sr"),m+" dk","",()=>api({minutes:m},"sunrise"));btn($("ss"),m+" dk","",()=>api({minutes:m},"sunset"))}
 $("pw").onclick=()=>api({on:!S.on});$("rev").onclick=()=>api({reverse:!S.reverse});$("mir").onclick=()=>api({mirror:!S.mirror});
 $("bri").oninput=e=>{$("briv").textContent=pct(e.target.value);send({bri:Math.max(1,Math.round(toVal(e.target.value/1000)*255)),on:true})};
 $("sp").oninput=e=>{const v=Math.round(toVal(e.target.value/1000)*1000);$("spv").textContent=v;send({speed:v})};
