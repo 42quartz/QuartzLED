@@ -6,3 +6,4 @@ backup/*.bin
 wled/*.bin
 .DS_Store
 __pycache__/
+firmware/secrets.ini

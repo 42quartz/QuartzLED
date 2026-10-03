@@ -122,6 +122,11 @@ void setConfig(const LedConfig& c) {
 
 void setState(const LedState& s) { st = s; }
 
+void blank() {
+  fill_solid(wire, LED_MAX, CRGB::Black);
+  FastLED.show();
+}
+
 void loop() {
   uint32_t now = millis();
   if (now - lastFrame < 16) return;

@@ -1,5 +1,6 @@
 #include "net.h"
 
+#include <ArduinoOTA.h>
 #include <ESPmDNS.h>
 #include <Preferences.h>
 #include <WebServer.h>
@@ -7,6 +8,7 @@
 
 #include "commands.h"
 #include "events.h"
+#include "led_engine.h"
 
 namespace net {
 namespace {
@@ -17,6 +19,7 @@ WebServer http(80);
 String ssid;
 bool httpStarted = false;
 bool mdnsStarted = false;
+bool otaStarted = false;
 uint8_t lastReason = 0;
 uint32_t connectedSince = 0;
 
@@ -107,6 +110,28 @@ void startServices() {
     http.begin();
     httpStarted = true;
   }
+  if (!otaStarted) {
+    ArduinoOTA.setHostname(kHostname);
+    ArduinoOTA.setPassword(OTA_PASSWORD);
+    ArduinoOTA.setMdnsEnabled(false);  // MDNS already started above
+    ArduinoOTA.onStart([] {
+      led::blank();
+      JsonDocument ev;
+      ev["event"] = "ota";
+      ev["state"] = "start";
+      events::emit(ev);
+    });
+    ArduinoOTA.onError([](ota_error_t e) {
+      JsonDocument ev;
+      ev["event"] = "ota";
+      ev["state"] = "error";
+      ev["code"] = (int)e;
+      events::emit(ev);
+    });
+    ArduinoOTA.begin();
+    MDNS.enableArduino(3232, true);
+    otaStarted = true;
+  }
 }
 
 void connect() {
@@ -131,6 +156,7 @@ void loop() {
   if (WiFi.status() == WL_CONNECTED) {
     startServices();
     http.handleClient();
+    ArduinoOTA.handle();
   }
 }
 
