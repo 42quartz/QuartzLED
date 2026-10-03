@@ -4,6 +4,7 @@
 #include <esp_system.h>
 
 #include "app.h"
+#include "homekit.h"
 #include "net.h"
 
 namespace commands {
@@ -165,6 +166,11 @@ void handle(JsonObjectConst req, JsonDocument& resp) {
   }
   else if (!strcmp(cmd, "scan")) doScan(resp);
   else if (!strcmp(cmd, "wifi")) doWifi(req, resp);
+  else if (!strcmp(cmd, "homekit")) {
+    if (req["unpair"] != true) { resp["error"] = "use {\"unpair\":true}"; return; }
+    homekit::unpair();
+    resp["ok"] = true;
+  }
   else if (!strcmp(cmd, "reboot")) { resp["ok"] = true; app::requestReboot(); }
   else resp["error"] = "unknown cmd";
 }

@@ -84,6 +84,11 @@ void handleApi() {
     http.send(403, "application/json", "{\"error\":\"not allowed over http\"}");
     return;
   }
+  // Destructive HomeKit ops over the network need the OTA password.
+  if (!strcmp(cmd, "homekit") && strcmp(req["key"] | "", OTA_PASSWORD) != 0) {
+    http.send(403, "application/json", "{\"error\":\"key required\"}");
+    return;
+  }
   if (req["source"].isNull()) req["source"] = "http";
   commands::handle(req.as<JsonObjectConst>(), resp);
   String out;

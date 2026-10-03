@@ -172,4 +172,6 @@ void loop() {
 
 void eraseWifi() { homeSpan.processSerialCommand("X"); }
 
+void unpair() { homeSpan.processSerialCommand("U"); }
+
 }  // namespace homekit
