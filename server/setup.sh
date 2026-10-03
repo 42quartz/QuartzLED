@@ -4,6 +4,7 @@
 # Installs Docker from Debian's repos, lets $SUDO_USER manage containers,
 # generates MQTT passwords (secrets.env, mode 600) and starts Mosquitto + Home Assistant.
 set -euo pipefail
+export LC_ALL=C  # locale-independent string handling (Turkish dotted/dotless i)
 
 if [[ $EUID -ne 0 ]]; then
   echo "Run with sudo: sudo bash $0" >&2
@@ -34,8 +35,9 @@ fi
 # shellcheck disable=SC1091
 source "$DIR/secrets.env"
 : > "$DIR/mosquitto/config/passwd"
-for u in quartzled homeassistant minibeyaz; do
-  var="MQTT_${u^^}_PASS"
+# Explicit names: ${u^^} breaks under tr_TR (i -> İ).
+for pair in quartzled:MQTT_QUARTZLED_PASS homeassistant:MQTT_HOMEASSISTANT_PASS minibeyaz:MQTT_MINIBEYAZ_PASS; do
+  u="${pair%%:*}" var="${pair#*:}"
   docker run --rm -v "$DIR/mosquitto/config:/mosquitto/config" eclipse-mosquitto:2 \
     mosquitto_passwd -b /mosquitto/config/passwd "$u" "${!var}"
 done
