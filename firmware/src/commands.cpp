@@ -75,7 +75,7 @@ void doSet(JsonObjectConst req, JsonDocument& resp) {
     if (e < 0) { resp["error"] = "unknown effect"; return; }
     s.effect = e;
   }
-  if (req["speed"].is<int>()) s.speed = constrain(req["speed"].as<int>(), 0, 255);
+  if (req["speed"].is<int>()) s.speed = constrain(req["speed"].as<int>(), 0, 1000);
   if (!req["probe"].isNull()) s.probe = req["probe"].is<int>() ? max(-1, req["probe"].as<int>()) : -1;
 
   if (req["count"].is<int>()) { c.count = constrain(req["count"].as<int>(), 1, LED_MAX); cfgChanged = true; }
@@ -133,6 +133,7 @@ void doWifi(JsonObjectConst req, JsonDocument& resp) {
       resp["error"] = "invalid ssid/pass length";
       return;
     }
+    resp["reboot"] = true;
   }
   resp["ok"] = true;
   net::status(resp["wifi"].to<JsonObject>());

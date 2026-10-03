@@ -7,7 +7,7 @@ struct LedState {
   uint8_t bri = 64;                  // 0-255, before power limiting
   uint8_t r = 255, g = 140, b = 40;  // warm white
   uint8_t effect = 0;                // index into kEffects
-  uint8_t speed = 128;               // 0-255
+  uint16_t speed = 128;              // 0-1000
   int16_t probe = -1;                // >=0: only this LED lit (calibration)
 };
 

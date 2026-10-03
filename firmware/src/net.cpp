@@ -1,25 +1,25 @@
 #include "net.h"
 
-#include <ArduinoOTA.h>
 #include <ESPmDNS.h>
 #include <Preferences.h>
 #include <WebServer.h>
 #include <WiFi.h>
 
+#include "app.h"
 #include "commands.h"
 #include "events.h"
-#include "led_engine.h"
+#include "homekit.h"
 
+// Wi-Fi association, mDNS and OTA are run by HomeSpan (homekit.cpp). This module stores the
+// credentials, reports connection events and serves the HTTP API on port 80.
 namespace net {
 namespace {
 
-constexpr const char* kHostname = "led";  // -> led.local
+constexpr const char* kHost = "led.local";
 Preferences prefs;
 WebServer http(80);
 String ssid;
 bool httpStarted = false;
-bool mdnsStarted = false;
-bool otaStarted = false;
 uint8_t lastReason = 0;
 uint32_t connectedSince = 0;
 
@@ -50,7 +50,7 @@ void onEvent(arduino_event_id_t id, arduino_event_info_t info) {
       ev["state"] = "connected";
       ev["ip"] = WiFi.localIP().toString();
       ev["rssi"] = WiFi.RSSI();
-      ev["host"] = String(kHostname) + ".local";
+      ev["host"] = kHost;
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       connectedSince = 0;
@@ -71,12 +71,10 @@ void handleApi() {
     req["v"] = 1;
     req["cmd"] = http.hasArg("cmd") ? http.arg("cmd") : "get";
   } else {
-    // Without a JSON Content-Type the body arrives as a form field name (e.g. plain `curl -d`).
-    String body = http.arg("plain");
-    if (body.isEmpty() && http.args() > 0) body = http.argName(0);
-    DeserializationError e = deserializeJson(req, body);
+    // WebServer only keeps the raw body for non-form content types: clients must send application/json.
+    DeserializationError e = deserializeJson(req, http.arg("plain"));
     if (e) {
-      http.send(400, "application/json", "{\"error\":\"bad json\"}");
+      http.send(400, "application/json", "{\"error\":\"bad json (send Content-Type: application/json)\"}");
       return;
     }
   }
@@ -85,6 +83,7 @@ void handleApi() {
     http.send(403, "application/json", "{\"error\":\"not allowed over http\"}");
     return;
   }
+  if (req["source"].isNull()) req["source"] = "http";
   commands::handle(req.as<JsonObjectConst>(), resp);
   String out;
   serializeJson(resp, out);
@@ -92,54 +91,19 @@ void handleApi() {
   http.send(resp["error"].isNull() ? 200 : 400, "application/json", out);
 }
 
-void startServices() {
-  if (!mdnsStarted && MDNS.begin(kHostname)) {
-    MDNS.addService("http", "tcp", 80);
-    MDNS.addServiceTxt("http", "tcp", "api", "/api");
-    mdnsStarted = true;
-  }
-  if (!httpStarted) {
-    http.on("/api", HTTP_GET, handleApi);
-    http.on("/api", HTTP_POST, handleApi);
-    http.on("/api", HTTP_OPTIONS, [] {
-      http.sendHeader("Access-Control-Allow-Origin", "*");
-      http.sendHeader("Access-Control-Allow-Headers", "Content-Type");
-      http.send(204);
-    });
-    http.onNotFound([] { http.send(404, "text/plain", "MiniBeyaz LED - API: /api\n"); });
-    http.begin();
-    httpStarted = true;
-  }
-  if (!otaStarted) {
-    ArduinoOTA.setHostname(kHostname);
-    ArduinoOTA.setPassword(OTA_PASSWORD);
-    ArduinoOTA.setMdnsEnabled(false);  // MDNS already started above
-    ArduinoOTA.onStart([] {
-      led::blank();
-      JsonDocument ev;
-      ev["event"] = "ota";
-      ev["state"] = "start";
-      events::emit(ev);
-    });
-    ArduinoOTA.onError([](ota_error_t e) {
-      JsonDocument ev;
-      ev["event"] = "ota";
-      ev["state"] = "error";
-      ev["code"] = (int)e;
-      events::emit(ev);
-    });
-    ArduinoOTA.begin();
-    MDNS.enableArduino(3232, true);
-    otaStarted = true;
-  }
-}
-
-void connect() {
-  String pass = prefs.getString("pass", "");
-  WiFi.mode(WIFI_STA);
-  WiFi.setHostname(kHostname);
-  WiFi.setAutoReconnect(true);
-  WiFi.begin(ssid.c_str(), pass.c_str());
+void startHttp() {
+  http.on("/api", HTTP_GET, handleApi);
+  http.on("/api", HTTP_POST, handleApi);
+  http.on("/api", HTTP_OPTIONS, [] {
+    http.sendHeader("Access-Control-Allow-Origin", "*");
+    http.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+    http.send(204);
+  });
+  http.onNotFound([] { http.send(404, "text/plain", "MiniBeyaz LED - API: /api\n"); });
+  http.begin();
+  MDNS.addService("http", "tcp", 80);  // MDNS itself was started by HomeSpan
+  MDNS.addServiceTxt("http", "tcp", "api", "/api");
+  httpStarted = true;
 }
 
 }  // namespace
@@ -147,17 +111,16 @@ void connect() {
 void begin() {
   prefs.begin("wifi", false);
   ssid = prefs.isKey("ssid") ? prefs.getString("ssid", "") : "";
+  String pass = ssid.length() ? prefs.getString("pass", "") : "";
   WiFi.onEvent(onEvent);
-  if (ssid.length()) connect();
-  else WiFi.mode(WIFI_OFF);
+  homekit::begin(ssid.c_str(), pass.c_str());
 }
 
 void loop() {
-  if (WiFi.status() == WL_CONNECTED) {
-    startServices();
-    http.handleClient();
-    ArduinoOTA.handle();
-  }
+  homekit::loop();
+  if (WiFi.status() != WL_CONNECTED) return;
+  if (!httpStarted) startHttp();
+  http.handleClient();
 }
 
 bool setCredentials(const char* newSsid, const char* pass) {
@@ -165,8 +128,7 @@ bool setCredentials(const char* newSsid, const char* pass) {
   ssid = newSsid;
   prefs.putString("ssid", ssid);
   prefs.putString("pass", pass ? pass : "");
-  WiFi.disconnect();
-  connect();
+  app::requestReboot();  // HomeSpan reads credentials once, in begin()
   return true;
 }
 
@@ -174,8 +136,7 @@ void forget() {
   prefs.remove("ssid");
   prefs.remove("pass");
   ssid = "";
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_OFF);
+  homekit::eraseWifi();  // also reboots
 }
 
 bool connected() { return WiFi.status() == WL_CONNECTED; }
@@ -187,7 +148,7 @@ void status(JsonObject out) {
   if (connected()) {
     out["ip"] = WiFi.localIP().toString();
     out["rssi"] = WiFi.RSSI();
-    out["host"] = String(kHostname) + ".local";
+    out["host"] = kHost;
     out["uptime_s"] = (millis() - connectedSince) / 1000;
   } else if (lastReason) {
     out["last_reason"] = lastReason;
