@@ -67,7 +67,7 @@ String discoveryTopic(const char* component, const char* suffix) {
 void announceLight() {
   JsonDocument d;
   addCommon(d, nullptr, "light");
-  d.remove("name");  // entity takes the device name
+  d["name"] = nullptr;  // explicit null: entity takes the device name ("QuartzLED")
   d["schema"] = "template";
   d["cmd_t"] = topic("cmd");
   d["stat_t"] = topic("state");
