@@ -5,7 +5,9 @@
 
 #include "app.h"
 #include "homekit.h"
+#include "led_engine.h"
 #include "net.h"
+#include "presets.h"
 
 namespace commands {
 namespace {
@@ -48,13 +50,49 @@ void writeState(JsonObject o) {
   col.add(s.r);
   col.add(s.g);
   col.add(s.b);
+  JsonArray col2 = o["color2"].to<JsonArray>();
+  col2.add(s.r2);
+  col2.add(s.g2);
+  col2.add(s.b2);
   o["effect"] = kEffects[s.effect];
   o["speed"] = s.speed;
+  o["intensity"] = s.intensity;
+  o["palette"] = kPalettes[s.palette];
+  o["reverse"] = s.reverse;
+  o["mirror"] = s.mirror;
+  if (uint32_t t = app::timerRemaining()) o["timer_s"] = t;
   if (s.probe >= 0) o["probe"] = s.probe;
   o["count"] = c.count;
   o["order"] = c.order;
   o["chip"] = kChips[c.chip];
   o["power_ma"] = c.powerMa;
+}
+
+// Absent is fine; present must be a 3-element array.
+bool readColor(JsonVariantConst v, uint8_t& r, uint8_t& g, uint8_t& b) {
+  if (v.isNull()) return true;
+  JsonArrayConst a = v.as<JsonArrayConst>();
+  if (a.isNull() || a.size() != 3) return false;
+  r = constrain(a[0].as<int>(), 0, 255);
+  g = constrain(a[1].as<int>(), 0, 255);
+  b = constrain(a[2].as<int>(), 0, 255);
+  return true;
+}
+
+void doPreset(JsonObjectConst req, JsonDocument& resp) {
+  if (req["save"].is<const char*>()) {
+    if (!presets::save(req["save"], app::state())) { resp["error"] = "preset name 1-24 chars, max 8 saved"; return; }
+  } else if (req["delete"].is<const char*>()) {
+    if (!presets::remove(req["delete"])) { resp["error"] = "no such user preset"; return; }
+  } else if (req["name"].is<const char*>()) {
+    LedState s;
+    if (!presets::find(req["name"], s)) { resp["error"] = "unknown preset"; return; }
+    s.on = true;
+    app::commitState(s);
+    writeState(resp["state"].to<JsonObject>());
+  }
+  resp["ok"] = true;
+  presets::list(resp["presets"].to<JsonObject>());
 }
 
 void doSet(JsonObjectConst req, JsonDocument& resp) {
@@ -64,12 +102,9 @@ void doSet(JsonObjectConst req, JsonDocument& resp) {
 
   if (req["on"].is<bool>()) s.on = req["on"];
   if (req["bri"].is<int>()) s.bri = constrain(req["bri"].as<int>(), 0, 255);
-  if (req["color"].is<JsonArrayConst>()) {
-    JsonArrayConst a = req["color"];
-    if (a.size() != 3) { resp["error"] = "color needs [r,g,b]"; return; }
-    s.r = constrain(a[0].as<int>(), 0, 255);
-    s.g = constrain(a[1].as<int>(), 0, 255);
-    s.b = constrain(a[2].as<int>(), 0, 255);
+  if (!readColor(req["color"], s.r, s.g, s.b) || !readColor(req["color2"], s.r2, s.g2, s.b2)) {
+    resp["error"] = "colors need [r,g,b]";
+    return;
   }
   if (req["effect"].is<const char*>()) {
     int e = effectFromName(req["effect"]);
@@ -77,6 +112,14 @@ void doSet(JsonObjectConst req, JsonDocument& resp) {
     s.effect = e;
   }
   if (req["speed"].is<int>()) s.speed = constrain(req["speed"].as<int>(), 0, 1000);
+  if (req["intensity"].is<int>()) s.intensity = constrain(req["intensity"].as<int>(), 0, 255);
+  if (req["palette"].is<const char*>()) {
+    int p = paletteFromName(req["palette"]);
+    if (p < 0) { resp["error"] = "unknown palette"; return; }
+    s.palette = p;
+  }
+  if (req["reverse"].is<bool>()) s.reverse = req["reverse"];
+  if (req["mirror"].is<bool>()) s.mirror = req["mirror"];
   if (!req["probe"].isNull()) s.probe = req["probe"].is<int>() ? max(-1, req["probe"].as<int>()) : -1;
 
   if (req["count"].is<int>()) { c.count = constrain(req["count"].as<int>(), 1, LED_MAX); cfgChanged = true; }
@@ -161,10 +204,28 @@ void handle(JsonObjectConst req, JsonDocument& resp) {
     resp["mac"] = WiFi.macAddress();
     JsonArray fx = resp["effects"].to<JsonArray>();
     for (auto e : kEffects) fx.add(e);
+    JsonArray pa = resp["palettes"].to<JsonArray>();
+    for (auto p : kPalettes) pa.add(p);
     JsonArray ch = resp["chips"].to<JsonArray>();
     for (auto c : kChips) ch.add(c);
   }
   else if (!strcmp(cmd, "scan")) doScan(resp);
+  else if (!strcmp(cmd, "preset")) doPreset(req, resp);
+  else if (!strcmp(cmd, "timer")) {  // fade off after N minutes; 0 cancels
+    app::setTimer(constrain(req["minutes"] | 0, 0, 24 * 60));
+    resp["ok"] = true;
+    writeState(resp["state"].to<JsonObject>());
+  }
+  else if (!strcmp(cmd, "sunrise")) {  // wake-up ramp over N minutes
+    led::startSunrise(constrain(req["minutes"] | 20, 1, 120));
+    LedState s = app::state();
+    s.effect = FX_SUNRISE;
+    s.on = true;
+    if (s.bri < 200) s.bri = 255;
+    app::commitState(s);
+    resp["ok"] = true;
+    writeState(resp["state"].to<JsonObject>());
+  }
   else if (!strcmp(cmd, "wifi")) doWifi(req, resp);
   else if (!strcmp(cmd, "homekit")) {
     if (req["unpair"] != true) { resp["error"] = "use {\"unpair\":true}"; return; }
@@ -218,6 +279,29 @@ bool parseText(const char* line, JsonDocument& req, String& err) {
     if (!a) { err = "effect needs a name"; return false; }
     req["effect"] = a;
     req["on"] = true;
+  }
+  else if (cmd == "intensity") { if (!num("intensity", n)) return false; req["intensity"] = n; }
+  else if (cmd == "timer") { if (!num("minutes", n)) return false; req["cmd"] = "timer"; req["minutes"] = n; }
+  else if (cmd == "sunrise") { if (!num("minutes", n)) return false; req["cmd"] = "sunrise"; req["minutes"] = n; }
+  else if (cmd == "rgb2") {
+    int r, g, b;
+    if (!num("r", r) || !num("g", g) || !num("b", b)) return false;
+    JsonArray c = req["color2"].to<JsonArray>();
+    c.add(r); c.add(g); c.add(b);
+  }
+  else if (cmd == "reverse" || cmd == "mirror") {
+    char* a = next();
+    req[cmd] = !(a && (!strcmp(a, "off") || !strcmp(a, "0")));
+  }
+  else if (cmd == "preset" || cmd == "save" || cmd == "delete") {
+    char* a = next();
+    req["cmd"] = "preset";
+    if (a) req[cmd == "preset" ? "name" : cmd.c_str()] = a;
+  }
+  else if (cmd == "palette") {
+    char* a = next();
+    if (!a) { err = "palette needs a name"; return false; }
+    req["palette"] = a;
   }
   else if (cmd == "order" || cmd == "chip") {
     char* a = next();

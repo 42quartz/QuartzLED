@@ -18,7 +18,20 @@ bool sameState(const LedState& a, const LedState& b) {
          a.speed == b.speed;
 }
 
-bool usesColor(uint8_t fx) { return fx == FX_SOLID || fx == FX_BREATHE || fx == FX_CHASE || fx == FX_TWINKLE; }
+// Slider % <-> engine value through the shared low-end-dense curve.
+int toPct(float frac) { return max(1L, lroundf(valueToSlider(frac) * 100)); }
+float fromPct(float pct) { return sliderToValue(pct / 100.0f); }
+
+bool usesColor(uint8_t fx) {
+  switch (fx) {
+    case FX_SOLID: case FX_BREATHE: case FX_CHASE: case FX_TWINKLE: case FX_SCANNER: case FX_METEOR:
+    case FX_THEATER: case FX_TWOCOLOR: case FX_GRADIENT: case FX_CANDLE: case FX_SPARKLE: case FX_PULSE:
+    case FX_HEARTBEAT:
+      return true;
+    default:
+      return false;
+  }
+}
 
 bool apply(JsonDocument& req) {
   req["v"] = 1;
@@ -38,7 +51,7 @@ struct Light : Service::LightBulb {
     float h, sa;
     rgbToHs(s.r, s.g, s.b, h, sa);
     power = new Characteristic::On(s.on);
-    level = new Characteristic::Brightness(max(1L, lroundf(s.bri / 2.55f)));
+    level = new Characteristic::Brightness(toPct(s.bri / 255.0f));
     level->setRange(1, 100, 1);
     hue = new Characteristic::Hue(h);
     sat = new Characteristic::Saturation(sa);
@@ -47,7 +60,7 @@ struct Light : Service::LightBulb {
   boolean update() override {
     JsonDocument req;
     if (power->updated()) req["on"] = power->getNewVal<bool>();
-    if (level->updated()) req["bri"] = lroundf(level->getNewVal<float>() * 2.55f);
+    if (level->updated()) req["bri"] = max(1L, lroundf(fromPct(level->getNewVal<float>()) * 255));
     if (hue->updated() || sat->updated()) {
       uint8_t r, g, b;
       hsvToRgb(hue->getNewVal<float>(), sat->getNewVal<float>(), r, g, b);
@@ -60,7 +73,7 @@ struct Light : Service::LightBulb {
 
   void push(const LedState& s) {
     if (power->getVal<bool>() != s.on) power->setVal(s.on);
-    int lv = max(1L, lroundf(s.bri / 2.55f));
+    int lv = toPct(s.bri / 255.0f);
     if (level->getVal() != lv) level->setVal(lv);
     float h, sa;
     rgbToHs(s.r, s.g, s.b, h, sa);
@@ -101,14 +114,14 @@ struct SpeedFan : Service::Fan {
     uint16_t sp = app::state().speed;
     if (sp) lastNonZero = sp;
     active = new Characteristic::Active(sp > 0);
-    rate = new Characteristic::RotationSpeed(sp / 10);
+    rate = new Characteristic::RotationSpeed(toPct(sp / 1000.0f));
     rate->setRange(0, 100, 1);
     new Characteristic::ConfiguredName("Efekt Hızı");
   }
 
   boolean update() override {
     JsonDocument req;
-    if (rate->updated()) req["speed"] = rate->getNewVal() * 10;
+    if (rate->updated()) req["speed"] = lroundf(fromPct(rate->getNewVal<float>()) * 1000);
     if (active->updated()) {
       if (!active->getNewVal()) req["speed"] = 0;  // off = freeze the animation
       else if (!rate->updated()) req["speed"] = lastNonZero;
@@ -119,7 +132,7 @@ struct SpeedFan : Service::Fan {
 
   void push(const LedState& s) {
     if (s.speed) lastNonZero = s.speed;
-    int pct = (s.speed + 5) / 10;
+    int pct = toPct(s.speed / 1000.0f);
     if (active->getVal() != (s.speed > 0)) active->setVal(s.speed > 0);
     if (s.speed && rate->getVal() != pct) rate->setVal(pct);
   }
@@ -135,19 +148,19 @@ void begin(const char* ssid, const char* pass) {
   homeSpan.setLogLevel(0);
   homeSpan.setSerialInputDisable(true);  // our JSON shell owns Serial
   homeSpan.setPortNum(1201);             // port 80 is the HTTP API
-  homeSpan.setHostNameSuffix("");        // -> led.local
+  homeSpan.setHostNameSuffix("");        // -> quartzled.local
   homeSpan.setPairingCode(HOMEKIT_CODE);
-  homeSpan.setQRID("MBLE");
+  homeSpan.setQRID("QZLD");
   homeSpan.setSketchVersion(FW_VERSION);
   homeSpan.enableOTA(OTA_PASSWORD);
   if (ssid && *ssid) homeSpan.setWifiCredentials(ssid, pass ? pass : "");
 
-  homeSpan.begin(Category::Lighting, "MiniBeyaz LED", "led", "MiniBeyaz-LED");
+  homeSpan.begin(Category::Lighting, "QuartzLED", "quartzled", "QuartzLED");
 
   new SpanAccessory();
   new Service::AccessoryInformation();
   new Characteristic::Identify();
-  new Characteristic::Manufacturer("MiniBeyaz");
+  new Characteristic::Manufacturer("QuartzLED");
   new Characteristic::Model("Deneyap ESP32 WS2812");
   new Characteristic::FirmwareRevision(FW_VERSION);
   light = new Light();

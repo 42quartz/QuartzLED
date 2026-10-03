@@ -1,4 +1,4 @@
-// MiniBeyaz LED firmware — USB serial control, Wi-Fi + HTTP API.
+// QuartzLED firmware — USB serial control, Wi-Fi + HTTP API.
 // Every interface funnels into commands::handle() with the v1 JSON schema.
 
 #include <Arduino.h>
@@ -10,6 +10,7 @@
 #include "events.h"
 #include "led_engine.h"
 #include "net.h"
+#include "presets.h"
 #include "storage.h"
 
 namespace {
@@ -18,6 +19,7 @@ LedState gState;
 LedConfig gConfig;
 uint32_t stateDirtyAt = 0;
 uint32_t rebootAt = 0;
+uint32_t timerOffAt = 0;
 String lineBuf;
 
 constexpr uint32_t kSaveDelayMs = 3000;  // debounce flash writes while sliders move
@@ -25,7 +27,9 @@ constexpr uint32_t kSaveDelayMs = 3000;  // debounce flash writes while sliders 
 const char kHelp[] =
     "# commands: get | info | scan | on | off | bri N | rgb R G B | effect NAME | speed N\n"
     "#           count N | order GRB | chip ws2812|ws2811_400|ucs1903 | power MA | probe N|off | reboot\n"
-    "#           wifi (status) | forget | credentials: tools/ledctl.py wifi\n"
+    "#           rgb2 R G B | intensity N | palette NAME | reverse on|off | mirror on|off\n"
+    "#           preset NAME | save NAME | delete NAME | timer MIN | sunrise MIN\n"
+    "#           wifi (status) | forget | credentials: tools/ledctl.py wifi-setup\n"
     "#           or a JSON line: {\"v\":1,\"cmd\":\"set\",\"color\":[255,0,0]}\n";
 
 void reply(JsonDocument& resp) {
@@ -82,6 +86,14 @@ void commitConfig(const LedConfig& c) {
 }
 
 void requestReboot() { rebootAt = millis() + 300; }
+
+void setTimer(uint16_t minutes) { timerOffAt = minutes ? (millis() + minutes * 60000UL) | 1 : 0; }
+
+uint32_t timerRemaining() {
+  if (!timerOffAt) return 0;
+  int32_t left = (int32_t)(timerOffAt - millis());
+  return left > 0 ? (left + 999) / 1000 : 0;
+}
 }  // namespace app
 
 void setup() {
@@ -89,6 +101,7 @@ void setup() {
   storage::begin();
   uint32_t boots = storage::bumpBootCount();
   storage::load(gState, gConfig);
+  presets::begin();
 
   led::begin(gConfig);
   led::setState(gState);
@@ -117,6 +130,12 @@ void loop() {
     s.probe = -1;
     storage::saveState(s);
     stateDirtyAt = 0;
+  }
+  if (timerOffAt && (int32_t)(millis() - timerOffAt) >= 0) {
+    timerOffAt = 0;
+    LedState s = gState;
+    s.on = false;
+    app::commitState(s);
   }
   if (rebootAt && (int32_t)(millis() - rebootAt) >= 0) {
     Serial.flush();

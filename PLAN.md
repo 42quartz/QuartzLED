@@ -1,6 +1,6 @@
-# LED Projesi — Plan
+# QuartzLED — Plan
 
-Durum: 2026-10-03 · Hedef: MR Star kontrolcüsünü Deneyap Kart (ESP32) üzerinde kendi firmware'imizle değiştirmek; HomeKit, müzik modu ve ProBook'taki "MiniBeyaz" AI servisiyle entegre etmek.
+Durum: 2026-10-03 · Hedef: MR Star kontrolcüsünü Deneyap Kart (ESP32) üzerinde kendi firmware'imizle değiştirmek (proje adı: **QuartzLED**; AI asistanın adı: **MiniBeyaz**); HomeKit, müzik modu ve ProBook'taki "MiniBeyaz" AI servisiyle entegre etmek.
 
 ## Donanım
 
@@ -83,7 +83,7 @@ WLED-AP kopmaları reset (brownout) mu? Seri log ile ölçülür. Reset varsa: k
 - Router: ESP32 için saf WPA2, 2.4 GHz bir ağ; misafir ağlarında istemci izolasyonu kapalı olmalı. WPA3 sorunu sürerse Arduino 3.x / IDF 5 (pioarduino) denenir.
 
 ### 4 — Ağ kontrolü
-- HTTP JSON API + basit web arayüzü, mDNS `led.local`, ArduinoOTA.
+- HTTP JSON API + basit web arayüzü, mDNS `quartzled.local`, ArduinoOTA.
 - MQTT istemcisi (broker ProBook'ta; yoksa ESP sessizce bekler).
 
 ### 5 — HomeKit (HomeSpan)

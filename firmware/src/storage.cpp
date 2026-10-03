@@ -5,7 +5,7 @@
 namespace storage {
 namespace {
 Preferences prefs;
-constexpr uint8_t kStateVer = 2;  // v2: speed widened to uint16
+constexpr uint8_t kStateVer = 3;  // v3: color2, intensity, palette, reverse, mirror
 constexpr uint8_t kConfigVer = 1;
 }  // namespace
 

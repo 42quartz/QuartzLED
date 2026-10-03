@@ -16,7 +16,7 @@
 namespace net {
 namespace {
 
-constexpr const char* kHost = "led.local";
+constexpr const char* kHost = "quartzled.local";
 Preferences prefs;
 WebServer http(80);
 String ssid;
@@ -106,7 +106,7 @@ void startHttp() {
     http.send(204);
   });
   http.on("/", HTTP_GET, [] { http.send_P(200, "text/html; charset=utf-8", kWebUi); });
-  http.onNotFound([] { http.send(404, "text/plain", "MiniBeyaz LED - UI: /  API: /api\n"); });
+  http.onNotFound([] { http.send(404, "text/plain", "QuartzLED - UI: /  API: /api\n"); });
   http.begin();
   MDNS.addService("http", "tcp", 80);  // MDNS itself was started by HomeSpan
   MDNS.addServiceTxt("http", "tcp", "api", "/api");
