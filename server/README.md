@@ -46,6 +46,19 @@ tailscale serve --https=8443 off
 
 Give the board a DHCP reservation for <board-ip> in the router so the proxy target never moves.
 
+## MiniBeyaz (announcements + wake survey)
+
+Container next to Mosquitto/HA. Speaks hard-to-notice QuartzLED mode changes in Turkish (Piper, fully local)
+through the desktop session's PipeWire, and serves a morning wake survey that tunes the pre-wake light length.
+
+```bash
+bash ~/quartzled-server/minibeyaz/install.sh              # downloads the Piper voice, builds, starts
+tailscale serve --bg --https=8444 http://127.0.0.1:8790   # survey, tailnet only
+```
+
+Survey answers live only in `minibeyaz/data/minibeyaz.db`. Per-person consent for possible future anonymous
+sharing is recorded (default off); nothing leaves the machine.
+
 ## Gotcha
 
 `docker exec` / `docker run` need `-i` to receive a heredoc on stdin; without it the command silently

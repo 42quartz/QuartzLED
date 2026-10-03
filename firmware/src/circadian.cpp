@@ -21,7 +21,8 @@ struct Config {
   uint16_t wakeMin = 7 * 60, wakeDur = 20;    // sunrise ramp ends at wake
   uint16_t sleepMin = 23 * 60, sleepDur = 20; // sunset ramp starts at sleep
   char tz[32] = "<+03>-3";                    // POSIX TZ; default Europe/Istanbul
-};
+  bool prewake = false;  // v2: interval sunrise length is managed by MiniBeyaz (wake survey)
+};  // append-only: older blobs load as a prefix
 
 struct Window {
   bool valid = false;
@@ -30,7 +31,7 @@ struct Window {
 
 Preferences prefs;
 Config cfg;
-constexpr uint8_t kVer = 1;
+constexpr uint8_t kVer = 2;
 bool ntpStarted = false;
 int lastRiseDay = -1, lastSetDay = -1;
 uint32_t lastTick = 0;
@@ -129,6 +130,44 @@ int parseHHMM(const char* s) {
   return h * 60 + m;
 }
 
+void describe(JsonObject o, const char* key, const Window& w, time_t now) {
+  if (!w.valid) return;
+  JsonObject e = o[key].to<JsonObject>();
+  e["start"] = hhmm(w.start);
+  e["end"] = hhmm(w.end);
+  struct tm a, b;
+  localtime_r(&now, &a);
+  localtime_r(&w.start, &b);
+  e["day"] = a.tm_yday == b.tm_yday ? "today" : "tomorrow";
+}
+
+// Next sunrise/sunset windows that have not ended yet (today's, else tomorrow's).
+void upcoming(time_t now, Window& rise, Window& set) {
+  windows(now, rise, set);
+  Window r2, s2;
+  windows(now + 86400, r2, s2);
+  if (!rise.valid || rise.end <= now) rise = r2;
+  if (!set.valid || set.end <= now) set = s2;
+}
+
+// Plan summary for announcers (MiniBeyaz speaks these on the server).
+void emitPlan(const char* phase) {
+  JsonDocument ev;
+  ev["event"] = "circadian";
+  ev["phase"] = phase;
+  ev["armed"] = cfg.armed;
+  ev["variant"] = cfg.variant == VAR_AUTO ? "auto" : "interval";
+  ev["prewake"] = cfg.prewake;
+  time_t now = time(nullptr);
+  if (timeValid(now)) {
+    Window rise, set;
+    upcoming(now, rise, set);
+    describe(ev.as<JsonObject>(), "sunrise", rise, now);
+    describe(ev.as<JsonObject>(), "sunset", set, now);
+  }
+  events::emit(ev);
+}
+
 void trigger(bool rise, const Window& w, time_t now) {
   LedState s = app::state();
   if (!rise && !s.on) return;  // nothing to wind down
@@ -142,6 +181,8 @@ void trigger(bool rise, const Window& w, time_t now) {
   JsonDocument ev;
   ev["event"] = "circadian";
   ev["phase"] = rise ? "sunrise" : "sunset";
+  ev["variant"] = cfg.variant == VAR_AUTO ? "auto" : "interval";
+  ev["start"] = hhmm(w.start);
   ev["until"] = hhmm(w.end);
   events::emit(ev);
 }
@@ -156,8 +197,8 @@ void startNtp() {
 void begin() {
   prefs.begin("circ", false);
   uint8_t buf[sizeof(Config) + 1];
-  if (prefs.isKey("cfg") && prefs.getBytes("cfg", buf, sizeof(buf)) == sizeof(buf) && buf[0] == kVer)
-    memcpy(&cfg, buf + 1, sizeof(Config));
+  size_t len = prefs.isKey("cfg") ? prefs.getBytes("cfg", buf, sizeof(buf)) : 0;
+  if (len > 1 && buf[0] >= 1 && buf[0] <= kVer) memcpy(&cfg, buf + 1, len - 1);  // older = prefix
   setenv("TZ", cfg.tz, 1);
   tzset();
 }
@@ -210,6 +251,7 @@ void command(JsonObjectConst req, JsonDocument& resp) {
     changed = true;
   }
   if (req["wake_dur"].is<int>()) { cfg.wakeDur = constrain(req["wake_dur"].as<int>(), 5, 120); changed = true; }
+  if (req["prewake"].is<bool>()) { cfg.prewake = req["prewake"]; changed = true; }
   if (req["sleep_dur"].is<int>()) { cfg.sleepDur = constrain(req["sleep_dur"].as<int>(), 5, 120); changed = true; }
   if (req["tz"].is<const char*>()) {
     strlcpy(cfg.tz, req["tz"], sizeof(cfg.tz));
@@ -220,6 +262,7 @@ void command(JsonObjectConst req, JsonDocument& resp) {
   if (changed) {
     save();
     lastRiseDay = lastSetDay = -1;  // re-evaluate today with the new plan
+    emitPlan(req["armed"].is<bool>() ? (cfg.armed ? "armed" : "disarmed") : "plan");
   }
 
   resp["ok"] = true;
@@ -233,6 +276,7 @@ void command(JsonObjectConst req, JsonDocument& resp) {
   }
   o["wake"] = hhmmMin(cfg.wakeMin);
   o["wake_dur"] = cfg.wakeDur;
+  o["prewake"] = cfg.prewake;
   o["sleep"] = hhmmMin(cfg.sleepMin);
   o["sleep_dur"] = cfg.sleepDur;
   o["tz"] = cfg.tz;

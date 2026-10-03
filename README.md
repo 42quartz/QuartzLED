@@ -21,6 +21,8 @@ Built on a **Deneyap Kart** (1st gen, ESP32-D0WD-V3, 4 MB flash, no PSRAM) drivi
   - *interval*: wake/sleep clock times with chosen ramp lengths
   - *automatic*: follows the real sky at your location — civil dawn → sunrise, sunset → civil dusk
     (on-device solar calculation, NTP time; location from the browser or entered by hand, never sent elsewhere)
+  - *pre-wake (adaptive)*: a morning survey (wake time, tiredness) tunes how long the light rises before waking
+- **Spoken announcements** on the home server for modes you can't easily see starting (MiniBeyaz)
 - **Power-budgeted brightness**: output is scaled inside a configurable mA budget, never clipped
 - **Low-end-dense sliders** everywhere (50 % slider = 10 % value) because perceived brightness and
   animation speed change fastest at the bottom
@@ -38,6 +40,7 @@ Built on a **Deneyap Kart** (1st gen, ESP32-D0WD-V3, 4 MB flash, no PSRAM) drivi
 |---|---|
 | `firmware/` | PlatformIO project (Arduino-ESP32 2.0.x, FastLED 3.9, HomeSpan 1.9, ArduinoJson 7, PubSubClient) |
 | `server/` | Docker Compose for Mosquitto + Home Assistant, one-shot `setup.sh`, notes on Tailscale access |
+| `server/minibeyaz/` | MiniBeyaz: Turkish voice announcements (Piper) and an adaptive wake survey, via MQTT |
 | `tools/` | `ledbridge.py` (keeps the serial port open and logs it), `ledctl.py` (send commands, Wi-Fi setup) |
 | `PLAN.md` | Architecture and roadmap (Turkish) |
 

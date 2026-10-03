@@ -102,6 +102,13 @@ WLED-AP kopmaları reset (brownout) mu? Seri log ile ölçülür. Reset varsa: k
 - 7d: Yanıt: LED ile görsel geri bildirim (dinliyor/düşünüyor/tamam), isteğe TTS (Mac/iPad/sunucu hoparlörü).
 - Gizlilik: ses ev ağından çıkmaz (yerel modeller); GPKEY ile donanımsal susturma; susturma durumu kart LED'inde.
 
+### 7e — Uyanış uyarlaması ve gelecekte veri (not)
+- Şu an: MiniBeyaz sabah anketi (kim, kaçta uyanabildi, dün gece yorgunluk 1–5) yalnızca ProBook'ta SQLite'ta tutulur.
+  "Uyanış öncesi (uyarlanır)" açıkken son 3 günün yanıtlarına göre ışık süresi ±5 dk (15–60 dk) ayarlanır. Tıbbi değil, açıklanabilir bir kural.
+- Kişi başına "anonim veri paylaşımı" onayı kaydedilir (varsayılan kapalı, geri alınabilir). Bugün hiçbir veri dışarı çıkmaz.
+- İleride, yalnızca onay verenlerin anonim verisiyle herkese uygun uyanış zamanlama modelini geliştirmek
+  (kronotip, mevsim, gün doğumu saati, uyku süresi gibi değişkenler); toplama ve kullanım şeffaf ve isteğe bağlı olacak.
+
 ### 8 — Fiziksel kumanda (koşullu)
 Orijinal kontrol kartı açılıp fotoğraflanır. Seçenekler:
 1. Alıcı modülün (433 MHz / 2.4 GHz) veri çıkışını ESP'ye bağlayıp kodları çözmek.

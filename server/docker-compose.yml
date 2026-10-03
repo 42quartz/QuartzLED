@@ -25,3 +25,22 @@ services:
       - /run/dbus:/run/dbus:ro
     depends_on:
       - mosquitto
+
+  minibeyaz:
+    build: ./minibeyaz
+    container_name: minibeyaz
+    restart: unless-stopped
+    network_mode: host        # MQTT on 127.0.0.1:1883, survey on 127.0.0.1:8790
+    user: "1000:1000"         # same uid as the desktop session that owns the audio socket
+    env_file: ./minibeyaz/minibeyaz.env
+    volumes:
+      - ./minibeyaz/models:/models:ro
+      - ./minibeyaz/data:/data
+      - /etc/localtime:/etc/localtime:ro
+      - type: bind            # desktop session's PipeWire (PulseAudio protocol); never auto-created
+        source: /run/user/1000/pulse
+        target: /run/pulse
+        bind:
+          create_host_path: false
+    depends_on:
+      - mosquitto

@@ -67,6 +67,8 @@ select{width:100%;padding:10px;border-radius:10px;background:#2c2c2e;color:var(-
 <div id="vi">
  <div class="tl"><span>Uyanış</span><input id="wk" type="time"><select id="wkd"></select></div>
  <div class="tl"><span>Uyku</span><input id="sl" type="time"><select id="sld"></select></div>
+ <div class="tg">Uyanış öncesi (uyarlanır) <button id="pre" class="sw"></button></div>
+ <p class="note">Açıkken uyanıştan önceki ışık süresini MiniBeyaz, sabah anketindeki uyanma saatinize ve yorgunluğunuza göre ayarlar.</p>
 </div>
 <div id="va">
  <div class="row"><button id="geo">📍 Konumumu kullan</button></div>
@@ -113,7 +115,7 @@ function crender(c){C=c;$("arm").classList.toggle("on",c.armed);
  $("vi").classList.toggle("hide",c.variant!="interval");$("va").classList.toggle("hide",c.variant!="auto");
  if(document.activeElement.tagName!="INPUT"){$("wk").value=c.wake;$("sl").value=c.sleep;
   if(c.located){$("lat").value=c.lat;$("lon").value=c.lon}}
- $("wkd").value=c.wake_dur;$("sld").value=c.sleep_dur;const t=c.today||{};
+ $("wkd").value=c.wake_dur;$("pre").classList.toggle("on",!!c.prewake);$("wkd").disabled=!!c.prewake;$("sld").value=c.sleep_dur;const t=c.today||{};
  $("cinfo").textContent=!c.synced?"Saat henüz senkron değil…":(c.variant=="auto"&&!c.located)?"Konum gerekli.":
   "Bugün: aydınlanma "+(t.rise_start||"–")+" → "+(t.rise_end||"–")+" · kararma "+(t.set_start||"–")+" → "+(t.set_end||"–")+
   " · saat "+c.now+(c.armed?"":" · otomatik kurulum kapalı")}
@@ -134,7 +136,7 @@ for(const m of[15,30,60,120])btn($("tm"),m<60?m+" dk":m/60+" sa","",()=>api({min
 btn($("tm"),"İptal","",()=>api({minutes:0},"timer"));
 for(const m of[10,20,30]){btn($("sr"),m+" dk","",()=>api({minutes:m},"sunrise"));btn($("ss"),m+" dk","",()=>api({minutes:m},"sunset"))}
 for(const id of["wkd","sld"])for(const m of[10,15,20,30,45,60]){const o=document.createElement("option");o.value=m;o.textContent=m+" dk";$(id).appendChild(o)}
-$("arm").onclick=()=>capi({armed:!C.armed});
+$("arm").onclick=()=>capi({armed:!C.armed});$("pre").onclick=()=>capi({prewake:!C.prewake});
 for(const b of $("var").children)b.onclick=()=>capi({variant:b.dataset.v});
 $("wk").onchange=e=>capi({wake:e.target.value});$("sl").onchange=e=>capi({sleep:e.target.value});
 $("wkd").onchange=e=>capi({wake_dur:+e.target.value});$("sld").onchange=e=>capi({sleep_dur:+e.target.value});

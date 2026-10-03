@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="tr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes"><title>MiniBeyaz · Uyanış</title>
+<style>
+:root{color-scheme:dark;--bg:#111;--card:#1c1c1e;--fg:#f2f2f7;--mute:#8e8e93;--acc:#ffb340;--line:#333}
+*{box-sizing:border-box}body{margin:0;font:16px/1.45 system-ui,sans-serif;background:var(--bg);color:var(--fg);padding:env(safe-area-inset-top) 14px 28px}
+main{max-width:520px;margin:auto}h1{font-size:20px;margin:18px 0 4px}.sub{color:var(--mute);font-size:14px;margin:0 0 12px}
+.card{background:var(--card);border-radius:14px;padding:14px;margin:10px 0}label{display:block;color:var(--mute);font-size:14px;margin-bottom:8px}
+.chips{display:flex;flex-wrap:wrap;gap:7px}.chips button,.scale button,.add button,#send{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:#2c2c2e;color:var(--fg);font-size:15px}
+.chips button.on,.scale button.on{background:var(--acc);color:#111;border-color:var(--acc);font-weight:600}
+.scale{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.scale button{padding:12px 0}.ends{display:flex;justify-content:space-between;color:var(--mute);font-size:12px;margin-top:4px}
+input[type=time],.add input{width:100%;padding:11px;border-radius:10px;background:#2c2c2e;color:var(--fg);border:1px solid var(--line);font-size:17px}
+.add{display:flex;gap:8px;margin-top:10px}.add input{flex:1}
+#send{width:100%;background:var(--acc);color:#111;font-weight:600;border:0;padding:14px;margin-top:4px}
+.consent{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--mute)}.consent input{margin-top:3px}
+#msg{text-align:center;margin:12px 0;min-height:22px}table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--mute);font-weight:500}
+</style></head><body><main>
+<h1>Günaydın ☀️</h1><p class="sub" id="plan"></p>
+
+<div class="card"><label>Sen kimsin?</label><div class="chips" id="people"></div>
+<div class="add"><input id="newname" placeholder="Yeni kişi adı"><button id="addp">Ekle</button></div></div>
+
+<div class="card"><label>Bugün saat kaçta uyanabildin?</label><input id="woke" type="time"></div>
+
+<div class="card"><label>Dün gece ne kadar yorgundun?</label>
+<div class="scale" id="tired"></div><div class="ends"><span>Dinçtim</span><span>Çok yorgundum</span></div></div>
+
+<div class="card"><div class="consent"><input type="checkbox" id="consent">
+<span>İleride, uyanış zamanlamasını herkes için geliştirmek amacıyla yanıtlarımın <b>anonim</b> olarak toplanmasına izin veriyorum.
+Şu an hiçbir veri bu sunucudan dışarı çıkmaz; bu onay sadece kaydedilir ve istediğin zaman geri alınabilir.</span></div></div>
+
+<button id="send">Kaydet</button><p id="msg"></p>
+
+<div class="card"><label>Son yanıtlar</label><table><thead><tr><th>Tarih</th><th>Kişi</th><th>Plan</th><th>Uyanış</th><th>Yorgunluk</th><th>Işık</th></tr></thead><tbody id="hist"></tbody></table></div>
+</main><script>
+const $=id=>document.getElementById(id);const esc=t=>String(t??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));let st={},me=+localStorage.getItem("mb_person")||0,tired=0;
+const now=new Date();$("woke").value=String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+for(let i=1;i<=5;i++){const b=document.createElement("button");b.textContent=i;b.onclick=()=>{tired=i;render()};$("tired").appendChild(b)}
+async function call(path,body){const r=await fetch(path,body?{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}:{});
+ if(!r.ok)throw new Error(await r.text());return r.json()}
+function render(){const p=$("people");p.innerHTML="";
+ for(const x of st.people||[]){const b=document.createElement("button");b.textContent=x.name+((st.answered_today||[]).includes(x.id)?" ✓":"");
+  b.classList.toggle("on",x.id==me);b.onclick=()=>{me=x.id;localStorage.setItem("mb_person",me);render()};p.appendChild(b)}
+ const cur=(st.people||[]).find(x=>x.id==me);$("consent").checked=!!(cur&&cur.consent);
+ for(const b of $("tired").children)b.classList.toggle("on",+b.textContent==tired);
+ $("plan").textContent=st.armed?("Planlanan uyanış: "+(st.planned_wake||"–")+(st.prewake?" · uyanış öncesi ışık "+st.prewake_min+" dk (uyarlanır)":"")):"Ayılma planı kapalı.";
+ $("hist").innerHTML=(st.history||[]).map(h=>`<tr><td>${esc(h.date.slice(5))}</td><td>${esc(h.name)}</td><td>${esc(h.planned_wake||"–")}</td><td>${esc(h.woke_at)}</td><td>${esc(h.tiredness)}/5</td><td>${esc(h.prewake_min??"–")} dk</td></tr>`).join("")}
+async function load(){st=await call("/api/status");render()}
+$("addp").onclick=async()=>{const n=$("newname").value.trim();if(!n)return;st=await call("/api/people",{name:n});
+ const p=st.people.find(x=>x.name==n);if(p){me=p.id;localStorage.setItem("mb_person",me)}$("newname").value="";render()};
+$("consent").onchange=async e=>{if(!me)return alert("Önce kim olduğunu seç.");st=await call("/api/consent",{person_id:me,consent:e.target.checked});render()};
+$("send").onclick=async()=>{if(!me)return alert("Önce kim olduğunu seç.");if(!tired)return alert("Yorgunluğu 1-5 arasında seç.");
+ try{const j=await call("/api/survey",{person_id:me,woke_at:$("woke").value,tiredness:tired});$("msg").textContent=j.message;load()}
+ catch(e){$("msg").textContent="Hata: "+e.message}};
+load();
+</script></body></html>

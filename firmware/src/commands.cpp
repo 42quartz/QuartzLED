@@ -5,6 +5,7 @@
 
 #include "app.h"
 #include "circadian.h"
+#include "events.h"
 #include "homekit.h"
 #include "led_engine.h"
 #include "mqtt.h"
@@ -219,7 +220,12 @@ void handle(JsonObjectConst req, JsonDocument& resp) {
   else if (!strcmp(cmd, "preset")) doPreset(req, resp);
   else if (!strcmp(cmd, "circadian")) circadian::command(req, resp);
   else if (!strcmp(cmd, "timer")) {  // fade off after N minutes; 0 cancels
-    app::setTimer(constrain(req["minutes"] | 0, 0, 24 * 60));
+    uint16_t minutes = constrain(req["minutes"] | 0, 0, 24 * 60);
+    app::setTimer(minutes);
+    JsonDocument ev;
+    ev["event"] = "timer";
+    ev["minutes"] = minutes;
+    events::emit(ev);
     resp["ok"] = true;
     writeState(resp["state"].to<JsonObject>());
   }
@@ -233,6 +239,11 @@ void handle(JsonObjectConst req, JsonDocument& resp) {
     if (s.bri < 200) s.bri = 255;
     app::commitState(s);
     app::setTimer(rise ? 0 : minutes);  // sunset ends dark, then switches off
+    JsonDocument ev;
+    ev["event"] = "ramp";
+    ev["phase"] = cmd;
+    ev["minutes"] = minutes;
+    events::emit(ev);
     resp["ok"] = true;
     writeState(resp["state"].to<JsonObject>());
   }

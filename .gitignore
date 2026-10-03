@@ -12,3 +12,7 @@ server/mosquitto/config/passwd
 server/mosquitto/data/
 server/mosquitto/log/
 server/homeassistant/
+server/minibeyaz/.venv/
+server/minibeyaz/models/
+server/minibeyaz/data/
+server/minibeyaz/minibeyaz.env
