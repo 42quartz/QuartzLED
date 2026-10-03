@@ -15,6 +15,10 @@ input[type=time],.add input{width:100%;padding:11px;border-radius:10px;backgroun
 .add{display:flex;gap:8px;margin-top:10px}.add input{flex:1}
 #send{width:100%;background:var(--acc);color:#111;font-weight:600;border:0;padding:14px;margin-top:4px}
 .consent{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--mute)}.consent input{margin-top:3px}
+select{width:100%;padding:11px;border-radius:10px;background:#2c2c2e;color:var(--fg);border:1px solid var(--line);font-size:15px}
+.row2{display:flex;align-items:center;gap:10px;margin:12px 0}.row2 span{width:52px;color:var(--mute);font-size:14px}.row2 input{flex:1;accent-color:var(--acc)}.row2 b{width:44px;text-align:right;font-weight:500}
+#vtest{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#2c2c2e;color:var(--fg);font-size:15px}
+.note{color:var(--mute);font-size:12px;margin:8px 0 0}
 #msg{text-align:center;margin:12px 0;min-height:22px}table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--mute);font-weight:500}
 </style></head><body><main>
 <h1>Günaydın ☀️</h1><p class="sub" id="plan"></p>
@@ -32,6 +36,12 @@ input[type=time],.add input{width:100%;padding:11px;border-radius:10px;backgroun
 Şu an hiçbir veri bu sunucudan dışarı çıkmaz; bu onay sadece kaydedilir ve istediğin zaman geri alınabilir.</span></div></div>
 
 <button id="send">Kaydet</button><p id="msg"></p>
+
+<div class="card"><label>MiniBeyaz ses ayarları</label>
+<select id="vmode"><option value="mixed">Karışık: İngilizce terimler İngilizce sesle</option><option value="turkish">Sadece Türkçe</option></select>
+<div class="row2"><span>Hız</span><input id="vrate" type="range" min="0.6" max="1.6" step="0.05"><b id="vratev"></b></div>
+<div class="row2"><span>Seviye</span><input id="vvol" type="range" min="0.1" max="1.5" step="0.05"><b id="vvolv"></b></div>
+<button id="vtest">🔊 Dene</button><p class="note" id="vnote"></p></div>
 
 <div class="card"><label>Son yanıtlar</label><table><thead><tr><th>Tarih</th><th>Kişi</th><th>Plan</th><th>Uyanış</th><th>Yorgunluk</th><th>Işık</th></tr></thead><tbody id="hist"></tbody></table></div>
 </main><script>
@@ -54,5 +64,13 @@ $("consent").onchange=async e=>{if(!me)return alert("Önce kim olduğunu seç.")
 $("send").onclick=async()=>{if(!me)return alert("Önce kim olduğunu seç.");if(!tired)return alert("Yorgunluğu 1-5 arasında seç.");
  try{const j=await call("/api/survey",{person_id:me,woke_at:$("woke").value,tiredness:tired});$("msg").textContent=j.message;load()}
  catch(e){$("msg").textContent="Hata: "+e.message}};
+function vrender(v){$("vmode").value=v.mode;$("vrate").value=v.rate;$("vvol").value=v.volume;
+ $("vratev").textContent=(+v.rate).toFixed(2)+"×";$("vvolv").textContent=Math.round(v.volume*100)+"%";
+ $("vnote").textContent=v.english_voice?"":"İngilizce ses yüklü değil; karışık mod Türkçe okunuşa düşer."}
+let vt;function vsave(){clearTimeout(vt);vt=setTimeout(async()=>vrender(await call("/api/voice",{mode:$("vmode").value,rate:+$("vrate").value,volume:+$("vvol").value})),250)}
+$("vmode").onchange=vsave;$("vrate").oninput=()=>{$("vratev").textContent=(+$("vrate").value).toFixed(2)+"×";vsave()};
+$("vvol").oninput=()=>{$("vvolv").textContent=Math.round($("vvol").value*100)+"%";vsave()};
+$("vtest").onclick=()=>call("/api/voice/test",{});
+call("/api/voice").then(vrender);
 load();
 </script></body></html>

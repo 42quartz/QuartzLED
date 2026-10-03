@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import pathlib
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -36,37 +37,92 @@ PREWAKE_DEFAULT, PREWAKE_MIN, PREWAKE_MAX, PREWAKE_STEP = 30, 15, 60, 5
 
 
 # ---------------------------------------------------------------- speech
+# Terms read by the English voice in "mixed" mode; the Turkish respelling is used otherwise.
+LEXICON = [
+    ("Home Assistant", "Home Assistant", "hom asistınt"),
+    ("QuartzLED", "Quartz L E D", "kuorts el i di"),
+    ("HomeKit", "Home Kit", "hom kit"),
+    ("Tailscale", "Tailscale", "teylskeyl"),
+    ("Google", "Google", "gugıl"),
+    ("Wi-Fi", "Wi-Fi", "vay fay"),
+    ("MQTT", "M Q T T", "em kü ti ti"),
+    ("Siri", "Siri", "siri"),
+    ("LED", "L E D", "el i di"),
+]
+_LEX_RE = re.compile(r"\b(" + "|".join(re.escape(t) for t, _, _ in LEXICON) + r")\b")
+_LEX = {t: (en, tr) for t, en, tr in LEXICON}
+SAMPLE = "Merhaba, ben MiniBeyaz. QuartzLED ışığını Wi-Fi üzerinden yönetiyorum; yarın sabah saat yedi sıfır üçte gün aydınlanacak."
+
+
+def segments(text: str, mixed: bool) -> list[tuple[str, str]]:
+    """Split into (lang, text) runs; English terms become their own runs in mixed mode."""
+    out, pos = [], 0
+    for m in _LEX_RE.finditer(text):
+        en, tr = _LEX[m.group(1)]
+        if mixed:
+            if m.start() > pos:
+                out.append(("tr", text[pos:m.start()]))
+            out.append(("en", en))
+        else:
+            out.append(("tr", text[pos:m.start()] + tr))
+        pos = m.end()
+    if pos < len(text):
+        out.append(("tr", text[pos:]))
+    merged: list[tuple[str, str]] = []
+    for lang, t in out:  # join neighbours in the same language
+        if merged and merged[-1][0] == lang:
+            merged[-1] = (lang, merged[-1][1] + t)
+        elif t.strip():
+            merged.append((lang, t))
+    return merged
+
+
 class Speaker:
     """Serialises announcements; synthesis runs in a thread so MQTT/HTTP stay responsive."""
 
-    def __init__(self, model: str | None, volume: float):
+    def __init__(self, models: dict[str, str | None], settings):
         self.queue: asyncio.Queue[str] = asyncio.Queue()
-        self.volume = volume
-        self.voice = None
-        if model and pathlib.Path(model).exists():
-            from piper import PiperVoice  # heavy import; only when a model is present
+        self.settings = settings  # callable -> {"mode","rate","volume"}
+        self.voices = {}
+        for lang, path in models.items():
+            if path and pathlib.Path(path).exists():
+                from piper import PiperVoice  # heavy import; only when a model is present
 
-            self.voice = PiperVoice.load(model)
-        else:
-            log.warning("no Piper model at %s; announcements are logged only", model)
+                self.voices[lang] = PiperVoice.load(path)
+        if "tr" not in self.voices:
+            log.warning("no Turkish Piper model; announcements are logged only")
 
     def say(self, text: str) -> None:
         log.info("say: %s", text)
         self.queue.put_nowait(text)
 
+    def _pcm(self, lang: str, text: str, length_scale: float) -> bytes:
+        from piper import SynthesisConfig
+
+        voice = self.voices[lang]
+        cfg = SynthesisConfig(length_scale=length_scale)
+        return b"".join(chunk.audio_int16_bytes for chunk in voice.synthesize(text, syn_config=cfg))
+
     def _speak_blocking(self, text: str) -> None:
-        if not self.voice:
+        if "tr" not in self.voices:
             return
+        st = self.settings()
+        mixed = st["mode"] == "mixed" and "en" in self.voices
+        length_scale = 1.0 / max(0.5, min(2.0, st["rate"]))
+        rate = self.voices["tr"].config.sample_rate
+        gap = b"\x00\x00" * int(rate * 0.06)
+        pcm = gap.join(self._pcm(lang, t, length_scale) for lang, t in segments(text, mixed))
         with tempfile.NamedTemporaryFile(suffix=".wav") as f:
             with wave.open(f.name, "wb") as wf:
-                if hasattr(self.voice, "synthesize_wav"):  # piper-tts >= 1.3
-                    self.voice.synthesize_wav(text, wf)
-                else:
-                    self.voice.synthesize(text, wf)
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(rate)  # both voices are 22050 Hz medium models
+                wf.writeframes(pcm)
+            vol = max(0.0, min(1.5, st["volume"]))
             if shutil.which("pw-play"):
-                cmd = ["pw-play", f"--volume={self.volume}", f.name]
+                cmd = ["pw-play", f"--volume={vol}", f.name]
             else:  # container: PulseAudio client talking to the host's PipeWire
-                cmd = ["paplay", f"--volume={int(self.volume * 65536)}", f.name]
+                cmd = ["paplay", f"--volume={int(vol * 65536)}", f.name]
             subprocess.run(cmd, check=False)
 
     async def run(self) -> None:
@@ -115,8 +171,9 @@ class Store:
 class MiniBeyaz:
     def __init__(self):
         self.loop: asyncio.AbstractEventLoop | None = None
-        self.speaker = Speaker(os.environ.get("PIPER_MODEL"), float(os.environ.get("VOLUME", "0.8")))
         self.store = Store(DATA / "minibeyaz.db")
+        self.speaker = Speaker({"tr": os.environ.get("PIPER_MODEL"), "en": os.environ.get("PIPER_MODEL_EN")},
+                               self.voice_settings)
         self.base: str | None = None  # quartzled/<id>, learned from retained state
         self.plan: dict = {}          # last circadian status from the device
         self.state: dict = {}
@@ -126,6 +183,10 @@ class MiniBeyaz:
         self.mqtt.username_pw_set(os.environ["MQTT_USER"], os.environ["MQTT_PASS"])
         self.mqtt.on_connect = self._on_connect
         self.mqtt.on_message = lambda c, u, m: self.loop.call_soon_threadsafe(self._handle, m.topic, m.payload)
+
+    def voice_settings(self) -> dict:
+        return {"mode": "mixed", "rate": 1.0, "volume": float(os.environ.get("VOLUME", "0.8")),
+                **self.store.get("voice", {})}
 
     # -- mqtt
     def _on_connect(self, client, userdata, flags, reason, props):
@@ -281,6 +342,9 @@ class MiniBeyaz:
         app.router.add_post("/api/people", self.http_add_person)
         app.router.add_post("/api/consent", self.http_consent)
         app.router.add_post("/api/survey", self.http_survey)
+        app.router.add_get("/api/voice", self.http_voice)
+        app.router.add_post("/api/voice", self.http_voice)
+        app.router.add_post("/api/voice/test", self.http_voice_test)
         return app
 
     async def http_status(self, request):
@@ -310,6 +374,22 @@ class MiniBeyaz:
         self.store.db.execute("UPDATE people SET consent=? WHERE id=?", (int(bool(body["consent"])), int(body["person_id"])))
         self.store.db.commit()
         return await self.http_status(request)
+
+    async def http_voice(self, request):
+        if request.method == "POST":
+            body = await request.json()
+            cur = self.voice_settings()
+            if body.get("mode") in ("mixed", "turkish"):
+                cur["mode"] = body["mode"]
+            for k, lo, hi in (("rate", 0.6, 1.6), ("volume", 0.1, 1.5)):
+                if isinstance(body.get(k), (int, float)):
+                    cur[k] = round(max(lo, min(hi, float(body[k]))), 2)
+            self.store.put("voice", cur)
+        return web.json_response({**self.voice_settings(), "english_voice": "en" in self.speaker.voices})
+
+    async def http_voice_test(self, request):
+        self.speaker.say(SAMPLE)
+        return web.json_response({"ok": True})
 
     async def http_survey(self, request):
         body = await request.json()

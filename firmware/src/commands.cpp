@@ -83,6 +83,10 @@ bool readColor(JsonVariantConst v, uint8_t& r, uint8_t& g, uint8_t& b) {
 }
 
 void doPreset(JsonObjectConst req, JsonDocument& resp) {
+  if (req["show_builtin"].is<bool>()) {
+    presets::setShowBuiltin(req["show_builtin"]);
+    mqtt::presetsChanged();
+  }
   if (req["save"].is<const char*>()) {
     if (!presets::save(req["save"], app::state())) { resp["error"] = "preset name 1-24 chars, max 8 saved"; return; }
     mqtt::presetsChanged();

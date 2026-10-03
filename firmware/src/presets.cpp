@@ -50,7 +50,19 @@ int findUser(const char* name) {
 
 }  // namespace
 
-void begin() { prefs.begin("presets", false); }
+bool showB = true;
+
+void begin() {
+  prefs.begin("presets", false);
+  showB = prefs.getBool("showb", true);
+}
+
+bool showBuiltin() { return showB; }
+
+void setShowBuiltin(bool show) {
+  showB = show;
+  prefs.putBool("showb", show);
+}
 
 bool find(const char* name, LedState& out) {
   int slot = findUser(name);
@@ -63,7 +75,7 @@ bool find(const char* name, LedState& out) {
     }
   }
   for (auto& b : kBuiltins)
-    if (!strcasecmp(b.name, name)) {
+    if (showB && !strcasecmp(b.name, name)) {
       out = b.state;
       return true;
     }
@@ -95,8 +107,10 @@ bool remove(const char* name) {
 }
 
 void list(JsonObject out) {
+  out["show_builtin"] = showB;
   JsonArray b = out["builtin"].to<JsonArray>();
-  for (auto& p : kBuiltins) b.add(p.name);
+  if (showB)
+    for (auto& p : kBuiltins) b.add(p.name);
   JsonArray u = out["user"].to<JsonArray>();
   for (int i = 0; i < kMaxUser; i++)
     if (prefs.isKey(key('n', i).c_str())) u.add(prefs.getString(key('n', i).c_str()));

@@ -7,13 +7,21 @@ export LC_ALL=C
 DIR="$(cd "$(dirname "$0")" && pwd)"
 SERVER="$(dirname "$DIR")"
 VOICE="${PIPER_VOICE:-tr_TR-dfki-medium}"
-VOICE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/main/tr/tr_TR/$(echo "$VOICE" | cut -d- -f2)/$(echo "$VOICE" | cut -d- -f3)"
+VOICE_EN="${PIPER_VOICE_EN:-en_US-lessac-medium}"   # same 22050 Hz rate: segments are concatenated
 
-echo "==> Piper voice $VOICE"
+fetch_voice() {  # tr_TR-dfki-medium -> tr/tr_TR/dfki/medium/
+  local v="$1" locale="${1%%-*}" name quality
+  name="$(echo "$v" | cut -d- -f2)"; quality="$(echo "$v" | cut -d- -f3)"
+  local url="https://huggingface.co/rhasspy/piper-voices/resolve/main/${locale%%_*}/$locale/$name/$quality"
+  for ext in onnx onnx.json; do
+    [[ -s "$DIR/models/$v.$ext" ]] || curl -fsSL -o "$DIR/models/$v.$ext" "$url/$v.$ext"
+  done
+}
+
+echo "==> Piper voices $VOICE + $VOICE_EN"
 mkdir -p "$DIR/models" "$DIR/data"
-for ext in onnx onnx.json; do
-  [[ -s "$DIR/models/$VOICE.$ext" ]] || curl -fsSL -o "$DIR/models/$VOICE.$ext" "$VOICE_URL/$VOICE.$ext"
-done
+fetch_voice "$VOICE"
+fetch_voice "$VOICE_EN"
 
 echo "==> Environment"
 if [[ ! -f "$DIR/minibeyaz.env" ]]; then
@@ -26,12 +34,15 @@ MQTT_PORT=1883
 MQTT_USER=minibeyaz
 MQTT_PASS=$MQTT_MINIBEYAZ_PASS
 PIPER_MODEL=/models/$VOICE.onnx
+PIPER_MODEL_EN=/models/$VOICE_EN.onnx
 DATA_DIR=/data
 HTTP_PORT=8790
 VOLUME=0.8
 PULSE_SERVER=unix:/run/pulse/native
 EOF
 fi
+
+grep -q '^PIPER_MODEL_EN=' "$DIR/minibeyaz.env" || echo "PIPER_MODEL_EN=/models/$VOICE_EN.onnx" >> "$DIR/minibeyaz.env"
 
 echo "==> Container"
 cd "$SERVER"

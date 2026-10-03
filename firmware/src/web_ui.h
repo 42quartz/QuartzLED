@@ -42,7 +42,9 @@ select{width:100%;padding:10px;border-radius:10px;background:#2c2c2e;color:var(-
 <div class="card"><label>Parlaklık <span id="briv"></span></label><input id="bri" type="range" min="0" max="1000"></div>
 
 <h2>Sahneler</h2><div class="card"><div class="grid" id="pre"></div>
-<div class="row" style="margin-top:8px"><button id="savep">+ Şu anki ayarı kaydet</button></div></div>
+<div class="row" style="margin-top:8px"><button id="savep">+ Şu anki ayarı kaydet</button></div>
+<div class="tg" style="margin-top:6px">Hazır ön ayarlar gözüksün <button id="showb" class="sw"></button></div>
+<p class="note" id="prenote"></p></div>
 
 <h2>Efekt</h2><div class="card"><div class="grid" id="fx"></div></div>
 
@@ -126,7 +128,9 @@ async function guard(){if(!["sunrise","sunset"].includes(S.effect)||C.armed)retu
 function send(body,delay=120){busy=1;clearTimeout(timer);timer=setTimeout(()=>api(body).finally(()=>busy=0),delay)}
 function btn(parent,label,key,fn){const b=document.createElement("button");b.textContent=label;b.dataset.k=key;
  b.onclick=fn;parent.appendChild(b);return b}
-function presets(p){const g=$("pre");g.innerHTML="";for(const n of p.builtin)btn(g,PRE[n]||n,n,async()=>{await guard();api({name:n},"preset")});
+let PS={};
+function presets(p){PS=p;const g=$("pre");g.innerHTML="";$("showb").classList.toggle("on",p.show_builtin);
+ $("prenote").textContent=!p.show_builtin&&!p.user.length?"Henüz kayıtlı sahneniz yok. İstediğiniz ayarı yapıp \"Şu anki ayarı kaydet\"e basın.":"";for(const n of p.builtin)btn(g,PRE[n]||n,n,async()=>{await guard();api({name:n},"preset")});
  for(const n of p.user){const b=btn(g,"★ "+n,n,()=>api({name:n},"preset"));const x=document.createElement("span");
   x.className="x";x.textContent="×";x.onclick=e=>{e.stopPropagation();if(confirm(n+" silinsin mi?"))api({delete:n},"preset")};
   b.appendChild(x)}}
@@ -152,6 +156,7 @@ $("sp").oninput=e=>{const v=Math.round(toVal(e.target.value/1000)*1000);$("spv")
 $("in").oninput=e=>{$("inv").textContent=Math.round(e.target.value/2.55)+"%";send({intensity:+e.target.value})};
 $("col").oninput=e=>send({color:rgb(e.target.value),on:true});$("col2").oninput=e=>send({color2:rgb(e.target.value)});
 $("pal").onchange=e=>api({palette:e.target.value});
+$("showb").onclick=()=>api({show_builtin:!PS.show_builtin},"preset");
 $("savep").onclick=()=>{const n=prompt("Sahne adı:");if(n)api({save:n.trim()},"preset")};
 const poll=()=>document.hidden||busy||api().catch(()=>$("st").textContent="Bağlantı yok");
 api().catch(()=>$("st").textContent="Bağlantı yok");api({},"preset");capi({});setInterval(poll,4000);setInterval(()=>document.hidden||capi({}),30000);

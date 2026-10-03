@@ -12,6 +12,8 @@ void begin();
 bool find(const char* name, LedState& out);              // user presets shadow built-ins
 bool save(const char* name, const LedState& s);          // false if full or bad name
 bool remove(const char* name);                           // user presets only
-void list(JsonObject out);                               // {"builtin":[...],"user":[...]}
+void list(JsonObject out);                               // {"builtin":[...],"user":[...],"show_builtin":b}
+bool showBuiltin();                                      // hidden built-ins are not listed, applied or announced
+void setShowBuiltin(bool show);
 
 }  // namespace presets

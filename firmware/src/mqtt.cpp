@@ -131,6 +131,14 @@ void announceScene(const char* name, const char* label) {
   publishJson(discoveryTopic("scene", suffix.c_str()), d, true);
 }
 
+// Built-in scenes follow the "show built-ins" setting; hiding removes them from HA.
+void announceBuiltinScenes() {
+  for (auto& l : kPresetLabels) {
+    if (presets::showBuiltin()) announceScene(l.id, l.tr);
+    else client.publish(discoveryTopic("scene", (String("scene_") + l.id).c_str()).c_str(), "", true);
+  }
+}
+
 void announce() {
   announceLight();
   announceNumber("speed", "Efekt Hızı", "mdi:speedometer", 0, 100, 1, "%",
@@ -181,7 +189,7 @@ void announce() {
     publishJson(discoveryTopic("button", rise ? "sunrise" : "sunset"), d, true);
   }
 
-  for (auto& l : kPresetLabels) announceScene(l.id, l.tr);
+  announceBuiltinScenes();
   JsonDocument list;
   presets::list(list.to<JsonObject>());
   for (const char* name : list["user"].as<JsonArray>()) {
@@ -316,6 +324,7 @@ void publishEvent(const char* json) {
 void presetsChanged(const char* removed) {
   if (!client.connected()) return;
   if (removed) client.publish(discoveryTopic("scene", (String("scene_") + removed).c_str()).c_str(), "", true);
+  announceBuiltinScenes();
   JsonDocument list;
   presets::list(list.to<JsonObject>());
   for (const char* name : list["user"].as<JsonArray>()) {
