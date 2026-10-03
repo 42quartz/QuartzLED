@@ -35,6 +35,17 @@ HA stopped, in `.storage/http` → `data.stable`:
 Symptom when missing: `400: Bad Request` and *"A request from a reverse proxy was received from
 127.0.0.1, but your HTTP integration is not set-up for reverse proxies"* in the HA log.
 
+## QuartzLED web UI over Tailscale (tailnet only)
+
+The ESP32 cannot run Tailscale; the ProBook proxies it. Reachable from your Tailscale devices only:
+
+```bash
+tailscale serve --bg --https=8443 http://<board-ip>:80   # https://<machine>.<tailnet>.ts.net:8443
+tailscale serve --https=8443 off
+```
+
+Give the board a DHCP reservation for <board-ip> in the router so the proxy target never moves.
+
 ## Gotcha
 
 `docker exec` / `docker run` need `-i` to receive a heredoc on stdin; without it the command silently

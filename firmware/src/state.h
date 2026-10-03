@@ -42,6 +42,7 @@ enum Chip : uint8_t { CHIP_WS2812, CHIP_WS2811_400, CHIP_UCS1903, CHIP_COUNT };
 extern const char* const kChips[CHIP_COUNT];
 
 int effectFromName(const char* name);  // -1 if unknown
+bool effectUsesColor(uint8_t fx);       // false for rainbow/fire/palette effects...
 int paletteFromName(const char* name);
 int chipFromName(const char* name);
 

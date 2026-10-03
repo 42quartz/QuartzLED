@@ -113,6 +113,8 @@ void doSet(JsonObjectConst req, JsonDocument& resp) {
     int e = effectFromName(req["effect"]);
     if (e < 0) { resp["error"] = "unknown effect"; return; }
     s.effect = e;
+  } else if (!req["color"].isNull() && !effectUsesColor(s.effect)) {
+    s.effect = FX_SOLID;  // picking a color while rainbow/fire/palette runs means "show this color"
   }
   if (req["speed"].is<int>()) s.speed = constrain(req["speed"].as<int>(), 0, 1000);
   if (req["intensity"].is<int>()) s.intensity = constrain(req["intensity"].as<int>(), 0, 255);

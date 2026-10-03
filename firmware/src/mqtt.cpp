@@ -156,6 +156,19 @@ void announce() {
     publishJson(discoveryTopic("select", "palette"), d, true);
   }
 
+  {  // effect select: Google Home has no effect UI on lights but exposes selects as Modes
+    JsonDocument d;
+    addCommon(d, "Efekt", "effect");
+    d["cmd_t"] = topic("cmd");
+    d["cmd_tpl"] = "{\"v\":1,\"cmd\":\"set\",\"on\":true,\"effect\":\"{{ " + jinjaMap(kEffectLabels, true) + "[value] }}\"}";
+    d["stat_t"] = topic("state");
+    d["val_tpl"] = "{{ " + jinjaMap(kEffectLabels, false) + ".get(value_json.effect) }}";
+    JsonArray opts = d["options"].to<JsonArray>();
+    for (auto& l : kEffectLabels) opts.add(l.tr);
+    d["icon"] = "mdi:auto-fix";
+    publishJson(discoveryTopic("select", "effect"), d, true);
+  }
+
   announceSwitch("reverse", "Ters Yön", "mdi:swap-horizontal", "reverse");
   announceSwitch("mirror", "Ortadan Aynala", "mdi:arrow-expand-horizontal", "mirror");
 

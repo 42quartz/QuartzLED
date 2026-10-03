@@ -22,17 +22,6 @@ bool sameState(const LedState& a, const LedState& b) {
 int toPct(float frac) { return max(1L, lroundf(valueToSlider(frac) * 100)); }
 float fromPct(float pct) { return sliderToValue(pct / 100.0f); }
 
-bool usesColor(uint8_t fx) {
-  switch (fx) {
-    case FX_SOLID: case FX_BREATHE: case FX_CHASE: case FX_TWINKLE: case FX_SCANNER: case FX_METEOR:
-    case FX_THEATER: case FX_TWOCOLOR: case FX_GRADIENT: case FX_CANDLE: case FX_SPARKLE: case FX_PULSE:
-    case FX_HEARTBEAT:
-      return true;
-    default:
-      return false;
-  }
-}
-
 bool apply(JsonDocument& req) {
   req["v"] = 1;
   req["cmd"] = "set";
@@ -66,7 +55,6 @@ struct Light : Service::LightBulb {
       hsvToRgb(hue->getNewVal<float>(), sat->getNewVal<float>(), r, g, b);
       JsonArray c = req["color"].to<JsonArray>();
       c.add(r); c.add(g); c.add(b);
-      if (!usesColor(app::state().effect)) req["effect"] = kEffects[FX_SOLID];  // picking a color leaves rainbow/fire
     }
     return apply(req);
   }

@@ -20,6 +20,17 @@ int effectFromName(const char* name) { return indexOf(kEffects, FX_COUNT, name);
 int paletteFromName(const char* name) { return indexOf(kPalettes, PAL_COUNT, name); }
 int chipFromName(const char* name) { return indexOf(kChips, CHIP_COUNT, name); }
 
+bool effectUsesColor(uint8_t fx) {
+  switch (fx) {
+    case FX_SOLID: case FX_BREATHE: case FX_CHASE: case FX_TWINKLE: case FX_SCANNER: case FX_METEOR:
+    case FX_THEATER: case FX_TWOCOLOR: case FX_GRADIENT: case FX_CANDLE: case FX_SPARKLE: case FX_PULSE:
+    case FX_HEARTBEAT:
+      return true;
+    default:
+      return false;
+  }
+}
+
 DEFINE_GRADIENT_PALETTE(gpSunset){0, 120, 0, 0, 22, 179, 22, 0, 51, 255, 104, 0, 85, 167, 22, 18,
                                   135, 100, 0, 103, 198, 16, 0, 130, 255, 0, 0, 160};
 DEFINE_GRADIENT_PALETTE(gpAurora){0, 0, 20, 10, 60, 0, 200, 80, 120, 20, 255, 160,
