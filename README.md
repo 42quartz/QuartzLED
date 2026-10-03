@@ -11,7 +11,7 @@ Built on a **Deneyap Kart** (1st gen, ESP32-D0WD-V3, 4 MB flash, no PSRAM) drivi
 
 ## Features
 
-- **22 effects**: solid, rainbow, color loop, breathe, comet, scanner, meteor, theater, two-color, gradient,
+- **23 effects**: solid, rainbow, color loop, breathe, comet, scanner, meteor, theater, two-color, gradient,
   palette wave, Perlin flow, confetti, juggle, fire, candle, twinkle, sparkle, pulse, heartbeat, police,
   sunrise and sunset ramps
 - **11 palettes**, secondary color, per-effect intensity, reverse, mirror-from-center
@@ -86,7 +86,7 @@ Tailscale Funnel, and tailnet-only access to the web UI with `tailscale serve`.
 
 QuartzLED, "MR Star" uygulamasıyla satılan USB LED şeritlerin kapalı kaynak kontrol kutusunu bir ESP32 ile
 değiştirir. Ev uygulaması / Siri, Home Assistant, Google Home, kart üzerinde web arayüzü, MQTT ve JSON API
-desteği vardır. 22 efekt, 11 palet, 12 hazır sahne, uyku zamanlayıcısı, gün doğumu ile uyanış ve gün batımı ile
+desteği vardır. 23 efekt, 11 palet, 12 hazır sahne, uyku zamanlayıcısı, gün doğumu ile uyanış ve gün batımı ile
 kararma içerir. "Ayılma" planı ışık kapalıyken bile her gün çalışır: aralıklı (saat belirlenir) ya da
 otomatik (konuma göre gerçek şafak/gün doğumu ve gün batımı/alacakaranlık). Arayüzler Türkçedir.
 
