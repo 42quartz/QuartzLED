@@ -1,0 +1,27 @@
+# QuartzLED home server (ProBook): MQTT broker + Home Assistant.
+# Lives in ~/quartzled-server on the ProBook; started by setup.sh.
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    restart: unless-stopped
+    network_mode: host   # mDNS/HomeKit/Matter discovery need the LAN directly; UI on :8123
+    environment:
+      - TZ=Europe/Istanbul
+    volumes:
+      - ./homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    depends_on:
+      - mosquitto

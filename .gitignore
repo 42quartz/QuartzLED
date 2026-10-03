@@ -7,3 +7,8 @@ wled/*.bin
 .DS_Store
 __pycache__/
 firmware/secrets.ini
+server/secrets.env
+server/mosquitto/config/passwd
+server/mosquitto/data/
+server/mosquitto/log/
+server/homeassistant/
