@@ -3,6 +3,8 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 
+#include "mqtt.h"
+
 namespace events {
 namespace {
 QueueHandle_t queue = nullptr;
@@ -23,6 +25,7 @@ void flush(Print& out) {
   char* buf;
   while (xQueueReceive(queue, &buf, 0) == pdTRUE) {
     out.println(buf);
+    mqtt::publishEvent(buf);
     free(buf);
   }
 }

@@ -6,6 +6,7 @@
 #include "app.h"
 #include "homekit.h"
 #include "led_engine.h"
+#include "mqtt.h"
 #include "net.h"
 #include "presets.h"
 
@@ -82,8 +83,10 @@ bool readColor(JsonVariantConst v, uint8_t& r, uint8_t& g, uint8_t& b) {
 void doPreset(JsonObjectConst req, JsonDocument& resp) {
   if (req["save"].is<const char*>()) {
     if (!presets::save(req["save"], app::state())) { resp["error"] = "preset name 1-24 chars, max 8 saved"; return; }
+    mqtt::presetsChanged();
   } else if (req["delete"].is<const char*>()) {
     if (!presets::remove(req["delete"])) { resp["error"] = "no such user preset"; return; }
+    mqtt::presetsChanged(req["delete"]);
   } else if (req["name"].is<const char*>()) {
     LedState s;
     if (!presets::find(req["name"], s)) { resp["error"] = "unknown preset"; return; }
@@ -227,6 +230,7 @@ void handle(JsonObjectConst req, JsonDocument& resp) {
     writeState(resp["state"].to<JsonObject>());
   }
   else if (!strcmp(cmd, "wifi")) doWifi(req, resp);
+  else if (!strcmp(cmd, "mqtt")) mqtt::configure(req, resp);
   else if (!strcmp(cmd, "homekit")) {
     if (req["unpair"] != true) { resp["error"] = "use {\"unpair\":true}"; return; }
     homekit::unpair();
@@ -254,7 +258,7 @@ bool parseText(const char* line, JsonDocument& req, String& err) {
   String cmd(w);
   cmd.toLowerCase();
   int n;
-  if (cmd == "get" || cmd == "info" || cmd == "scan" || cmd == "reboot" || cmd == "wifi") req["cmd"] = cmd;
+  if (cmd == "get" || cmd == "info" || cmd == "scan" || cmd == "reboot" || cmd == "wifi" || cmd == "mqtt") req["cmd"] = cmd;
   else if (cmd == "forget") { req["cmd"] = "wifi"; req["forget"] = true; }
   else if (cmd == "on") req["on"] = true;
   else if (cmd == "off") req["on"] = false;

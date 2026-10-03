@@ -9,6 +9,7 @@
 #include "commands.h"
 #include "events.h"
 #include "led_engine.h"
+#include "mqtt.h"
 #include "net.h"
 #include "presets.h"
 #include "storage.h"
@@ -29,6 +30,7 @@ const char kHelp[] =
     "#           count N | order GRB | chip ws2812|ws2811_400|ucs1903 | power MA | probe N|off | reboot\n"
     "#           rgb2 R G B | intensity N | palette NAME | reverse on|off | mirror on|off\n"
     "#           preset NAME | save NAME | delete NAME | timer MIN | sunrise MIN\n"
+    "#           mqtt (status; set via JSON {\"cmd\":\"mqtt\",\"host\":..,\"user\":..,\"pass\":..})\n"
     "#           wifi (status) | forget | credentials: tools/ledctl.py wifi-setup\n"
     "#           or a JSON line: {\"v\":1,\"cmd\":\"set\",\"color\":[255,0,0]}\n";
 
@@ -106,6 +108,7 @@ void setup() {
   led::begin(gConfig);
   led::setState(gState);
   net::begin();
+  mqtt::begin();
 
   delay(200);
   JsonDocument hello;
@@ -123,6 +126,7 @@ void loop() {
   pollSerial();
   led::loop();
   net::loop();
+  mqtt::loop();
   events::flush(Serial);
 
   if (stateDirtyAt && millis() - stateDirtyAt > kSaveDelayMs) {
