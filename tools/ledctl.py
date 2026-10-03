@@ -5,8 +5,10 @@
     ledctl.py rgb 255 0 0
     ledctl.py '{"v":1,"cmd":"set","effect":"rainbow"}'
     ledctl.py --watch 10          # print everything the board says for 10 s
+    ledctl.py wifi-setup          # asks SSID + password (hidden) and stores them on the board
 """
 import argparse
+import getpass
 import json
 import socket
 import sys
@@ -26,6 +28,12 @@ def main() -> int:
     sock.settimeout(0.2)
 
     line = " ".join(args.command)
+    if line == "wifi-setup":
+        # Typed by the user in their own terminal; never printed or logged.
+        ssid = input("SSID: ").strip()
+        password = getpass.getpass("Password (hidden): ")
+        line = json.dumps({"v": 1, "cmd": "wifi", "ssid": ssid, "pass": password})
+        args.timeout = max(args.timeout, 3)
     if line:
         sock.sendall(line.encode() + b"\n")
 

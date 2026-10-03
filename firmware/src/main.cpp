@@ -1,4 +1,4 @@
-// MiniBeyaz LED firmware — stage 2: USB serial control + calibration.
+// MiniBeyaz LED firmware — USB serial control, Wi-Fi + HTTP API.
 // Every interface funnels into commands::handle() with the v1 JSON schema.
 
 #include <Arduino.h>
@@ -7,7 +7,9 @@
 
 #include "app.h"
 #include "commands.h"
+#include "events.h"
 #include "led_engine.h"
+#include "net.h"
 #include "storage.h"
 
 namespace {
@@ -23,6 +25,7 @@ constexpr uint32_t kSaveDelayMs = 3000;  // debounce flash writes while sliders 
 const char kHelp[] =
     "# commands: get | info | scan | on | off | bri N | rgb R G B | effect NAME | speed N\n"
     "#           count N | order GRB | chip ws2812|ws2811_400|ucs1903 | power MA | probe N|off | reboot\n"
+    "#           wifi (status) | forget | credentials: tools/ledctl.py wifi\n"
     "#           or a JSON line: {\"v\":1,\"cmd\":\"set\",\"color\":[255,0,0]}\n";
 
 void reply(JsonDocument& resp) {
@@ -83,14 +86,13 @@ void requestReboot() { rebootAt = millis() + 300; }
 
 void setup() {
   Serial.begin(115200);
-  WiFi.mode(WIFI_OFF);  // stage 2 is USB-only; radio stays off to save power
-
   storage::begin();
   uint32_t boots = storage::bumpBootCount();
   storage::load(gState, gConfig);
 
   led::begin(gConfig);
   led::setState(gState);
+  net::begin();
 
   delay(200);
   JsonDocument hello;
@@ -107,6 +109,8 @@ void setup() {
 void loop() {
   pollSerial();
   led::loop();
+  net::loop();
+  events::flush(Serial);
 
   if (stateDirtyAt && millis() - stateDirtyAt > kSaveDelayMs) {
     LedState s = gState;

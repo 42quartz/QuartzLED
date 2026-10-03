@@ -4,6 +4,7 @@
 #include <esp_system.h>
 
 #include "app.h"
+#include "net.h"
 
 namespace commands {
 namespace {
@@ -107,7 +108,8 @@ void doSet(JsonObjectConst req, JsonDocument& resp) {
 }
 
 void doScan(JsonDocument& resp) {
-  WiFi.mode(WIFI_STA);
+  bool wasOff = WiFi.getMode() == WIFI_OFF;
+  if (wasOff) WiFi.mode(WIFI_STA);
   int n = WiFi.scanNetworks(false, true);
   JsonArray arr = resp["networks"].to<JsonArray>();
   for (int i = 0; i < n; i++) {
@@ -119,8 +121,21 @@ void doScan(JsonDocument& resp) {
     o["bssid"] = WiFi.BSSIDstr(i);
   }
   WiFi.scanDelete();
-  WiFi.mode(WIFI_OFF);
+  if (wasOff) WiFi.mode(WIFI_OFF);
   resp["ok"] = true;
+}
+
+void doWifi(JsonObjectConst req, JsonDocument& resp) {
+  if (req["forget"] == true) {
+    net::forget();
+  } else if (req["ssid"].is<const char*>()) {
+    if (!net::setCredentials(req["ssid"], req["pass"] | "")) {
+      resp["error"] = "invalid ssid/pass length";
+      return;
+    }
+  }
+  resp["ok"] = true;
+  net::status(resp["wifi"].to<JsonObject>());
 }
 
 }  // namespace
@@ -148,6 +163,7 @@ void handle(JsonObjectConst req, JsonDocument& resp) {
     for (auto c : kChips) ch.add(c);
   }
   else if (!strcmp(cmd, "scan")) doScan(resp);
+  else if (!strcmp(cmd, "wifi")) doWifi(req, resp);
   else if (!strcmp(cmd, "reboot")) { resp["ok"] = true; app::requestReboot(); }
   else resp["error"] = "unknown cmd";
 }
@@ -170,7 +186,8 @@ bool parseText(const char* line, JsonDocument& req, String& err) {
   String cmd(w);
   cmd.toLowerCase();
   int n;
-  if (cmd == "get" || cmd == "info" || cmd == "scan" || cmd == "reboot") req["cmd"] = cmd;
+  if (cmd == "get" || cmd == "info" || cmd == "scan" || cmd == "reboot" || cmd == "wifi") req["cmd"] = cmd;
+  else if (cmd == "forget") { req["cmd"] = "wifi"; req["forget"] = true; }
   else if (cmd == "on") req["on"] = true;
   else if (cmd == "off") req["on"] = false;
   else if (cmd == "bri") { if (!num("bri", n)) return false; req["bri"] = n; }

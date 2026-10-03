@@ -10,10 +10,12 @@ import argparse
 import asyncio
 import datetime
 import pathlib
+import re
 
 import serial
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+SECRET_RE = re.compile(r'"(pass|password|token|key)"\s*:\s*"(?:[^"\\]|\\.)*"')
 clients: set[asyncio.StreamWriter] = set()
 
 
@@ -51,7 +53,8 @@ async def serve_client(reader, writer, ser: serial.Serial, log) -> None:
     try:
         while line := await reader.readline():
             stamp = datetime.datetime.now().isoformat(timespec="milliseconds")
-            log.write(f"{stamp} > {line.decode(errors='replace').rstrip()}\n")
+            text = SECRET_RE.sub(r'"\1":"***"', line.decode(errors="replace").rstrip())
+            log.write(f"{stamp} > {text}\n")
             ser.write(line if line.endswith(b"\n") else line + b"\n")
     finally:
         clients.discard(writer)
