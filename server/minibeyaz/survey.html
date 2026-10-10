@@ -19,6 +19,10 @@ select{width:100%;padding:11px;border-radius:10px;background:#2c2c2e;color:var(-
 .row2{display:flex;align-items:center;gap:10px;margin:12px 0}.row2 span{width:52px;color:var(--mute);font-size:14px}.row2 input{flex:1;accent-color:var(--acc)}.row2 b{width:44px;text-align:right;font-weight:500}
 #vtest{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#2c2c2e;color:var(--fg);font-size:15px}
 .note{color:var(--mute);font-size:12px;margin:8px 0 0}
+.tg2{display:flex;justify-content:space-between;align-items:center;margin:0 0 12px}
+.sw{width:52px;height:30px;border-radius:15px;background:#3a3a3c;border:0;position:relative;flex:none}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s}
+.sw.on{background:#34c759}.sw.on::after{left:25px}
 #msg{text-align:center;margin:12px 0;min-height:22px}table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--mute);font-weight:500}
 </style></head><body><main>
 <h1>Günaydın ☀️</h1><p class="sub" id="plan"></p>
@@ -38,6 +42,7 @@ select{width:100%;padding:11px;border-radius:10px;background:#2c2c2e;color:var(-
 <button id="send">Kaydet</button><p id="msg"></p>
 
 <div class="card"><label>MiniBeyaz ses ayarları</label>
+<div class="tg2"><span>Sesli duyurular ve hatırlatmalar</span><button id="ann" class="sw"></button></div>
 <select id="vmode"><option value="mixed">Karışık: İngilizce terimler İngilizce sesle</option><option value="turkish">Sadece Türkçe</option></select>
 <div class="row2"><span>Hız</span><input id="vrate" type="range" min="0.6" max="1.6" step="0.05"><b id="vratev"></b></div>
 <div class="row2"><span>Seviye</span><input id="vvol" type="range" min="0.1" max="1.5" step="0.05"><b id="vvolv"></b></div>
@@ -57,7 +62,9 @@ function render(){const p=$("people");p.innerHTML="";
  for(const b of $("tired").children)b.classList.toggle("on",+b.textContent==tired);
  $("plan").textContent=st.armed?("Planlanan uyanış: "+(st.planned_wake||"–")+(st.prewake?" · uyanış öncesi ışık "+st.prewake_min+" dk (uyarlanır)":"")):"Ayılma planı kapalı.";
  $("hist").innerHTML=(st.history||[]).map(h=>`<tr><td>${esc(h.date.slice(5))}</td><td>${esc(h.name)}</td><td>${esc(h.planned_wake||"–")}</td><td>${esc(h.woke_at)}</td><td>${esc(h.tiredness)}/5</td><td>${esc(h.prewake_min??"–")} dk</td></tr>`).join("")}
-async function load(){st=await call("/api/status");render()}
+async function load(){st=await call("/api/status");render();$("ann").classList.toggle("on",st.voice!==false)}
+$("ann").onclick=async()=>{try{const j=await call("/api/announce",{on:st.voice===false});st.voice=j.voice;
+ $("ann").classList.toggle("on",j.voice)}catch(e){alert("Değiştirilemedi: "+e.message)}};
 $("addp").onclick=async()=>{const n=$("newname").value.trim();if(!n)return;st=await call("/api/people",{name:n});
  const p=st.people.find(x=>x.name==n);if(p){me=p.id;localStorage.setItem("mb_person",me)}$("newname").value="";render()};
 $("consent").onchange=async e=>{if(!me)return alert("Önce kim olduğunu seç.");st=await call("/api/consent",{person_id:me,consent:e.target.checked});render()};

@@ -179,6 +179,7 @@ void announce() {
 
   announceSwitch("reverse", "Ters Yön", "mdi:swap-horizontal", "reverse");
   announceSwitch("mirror", "Ortadan Aynala", "mdi:arrow-expand-horizontal", "mirror");
+  announceSwitch("voice", "Sesli Duyurular", "mdi:account-voice", "voice");
 
   for (bool rise : {true, false}) {  // sunrise / sunset buttons
     JsonDocument d;

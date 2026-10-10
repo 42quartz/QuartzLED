@@ -8,5 +8,7 @@ void load(LedState& s, LedConfig& c);
 void saveState(const LedState& s);
 void saveConfig(const LedConfig& c);
 uint32_t bumpBootCount();
+bool loadVoice();            // MiniBeyaz spoken announcements/reminders on?
+void saveVoice(bool on);
 
 }  // namespace storage

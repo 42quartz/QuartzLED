@@ -80,9 +80,10 @@ def segments(text: str, mixed: bool) -> list[tuple[str, str]]:
 class Speaker:
     """Serialises announcements; synthesis runs in a thread so MQTT/HTTP stay responsive."""
 
-    def __init__(self, models: dict[str, str | None], settings):
+    def __init__(self, models: dict[str, str | None], settings, enabled=lambda: True):
         self.queue: asyncio.Queue[str] = asyncio.Queue()
         self.settings = settings  # callable -> {"mode","rate","volume"}
+        self.enabled = enabled    # callable -> device's "voice" flag
         self.voices = {}
         for lang, path in models.items():
             if path and pathlib.Path(path).exists():
@@ -92,7 +93,11 @@ class Speaker:
         if "tr" not in self.voices:
             log.warning("no Turkish Piper model; announcements are logged only")
 
-    def say(self, text: str) -> None:
+    def say(self, text: str, force: bool = False) -> None:
+        """Queue speech unless announcements are switched off (force: explicit user test)."""
+        if not force and not self.enabled():
+            log.info("muted: %s", text)
+            return
         log.info("say: %s", text)
         self.queue.put_nowait(text)
 
@@ -173,7 +178,7 @@ class MiniBeyaz:
         self.loop: asyncio.AbstractEventLoop | None = None
         self.store = Store(DATA / "minibeyaz.db")
         self.speaker = Speaker({"tr": os.environ.get("PIPER_MODEL"), "en": os.environ.get("PIPER_MODEL_EN")},
-                               self.voice_settings)
+                               self.voice_settings, enabled=lambda: self.state.get("voice", True) is not False)
         self.base: str | None = None  # quartzled/<id>, learned from retained state
         self.plan: dict = {}          # last circadian status from the device
         self.state: dict = {}
@@ -207,7 +212,10 @@ class MiniBeyaz:
         base, leaf = topic.rsplit("/", 1)
         if leaf == "state":
             first = self.base is None
+            was_on = self.state.get("voice", True) is not False
             self.base, self.state = base, msg
+            if not first and not was_on and msg.get("voice", True) is not False:
+                self.speaker.say("Sesli duyurular açıldı.")
             if first:
                 self.send({"cmd": "circadian", "id": "mb-plan"})
         elif leaf == "resp" and msg.get("id") == "mb-plan" and "circadian" in msg:
@@ -345,6 +353,7 @@ class MiniBeyaz:
         app.router.add_get("/api/voice", self.http_voice)
         app.router.add_post("/api/voice", self.http_voice)
         app.router.add_post("/api/voice/test", self.http_voice_test)
+        app.router.add_post("/api/announce", self.http_announce)
         return app
 
     async def http_status(self, request):
@@ -358,6 +367,7 @@ class MiniBeyaz:
             "planned_wake": self.planned_wake(), "prewake": bool(self.plan.get("prewake")),
             "prewake_min": self.store.get("prewake_min", self.plan.get("wake_dur")),
             "variant": self.plan.get("variant"), "armed": self.plan.get("armed"),
+            "voice": self.state.get("voice", True) is not False, "device_seen": bool(self.base),
         })
 
     async def http_add_person(self, request):
@@ -387,8 +397,17 @@ class MiniBeyaz:
             self.store.put("voice", cur)
         return web.json_response({**self.voice_settings(), "english_voice": "en" in self.speaker.voices})
 
+    async def http_announce(self, request):
+        """Toggle spoken announcements/reminders; the flag is stored on the device."""
+        on = bool((await request.json()).get("on"))
+        if not self.base:
+            raise web.HTTPServiceUnavailable(text="QuartzLED not seen on MQTT yet")
+        self.send({"cmd": "set", "voice": on})
+        self.state["voice"] = on  # optimistic; the retained state confirms it
+        return web.json_response({"ok": True, "voice": on})
+
     async def http_voice_test(self, request):
-        self.speaker.say(SAMPLE)
+        self.speaker.say(SAMPLE, force=True)
         return web.json_response({"ok": True})
 
     async def http_survey(self, request):

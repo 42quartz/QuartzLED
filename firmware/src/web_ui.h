@@ -56,6 +56,8 @@ select{width:100%;padding:10px;border-radius:10px;background:#2c2c2e;color:var(-
 <div class="card" id="inc"><label><span id="inl">Yoğunluk</span><span id="inv"></span></label><input id="in" type="range" min="0" max="255"></div>
 <div class="card"><div class="tg">Ters yön <button id="rev" class="sw"></button></div>
 <div class="tg">Ortadan aynala <button id="mir" class="sw"></button></div></div>
+<div class="card"><div class="tg">Sesli duyurular ve hatırlatmalar <button id="voi" class="sw"></button></div>
+<p class="note">Kapalıyken MiniBeyaz konuşmaz ve sabah anketini hatırlatmaz.</p></div>
 
 <h2>Zamanlayıcı</h2><div class="card">
 <label>Kapanma <span id="tmv"></span></label>
@@ -103,7 +105,7 @@ function vis(){const e=S.effect,pc=PF.has(e);$("c1w").classList.toggle("hide",!C
  $("colc").classList.toggle("hide",!C1.has(e)&&!C2.has(e)&&!(pc&&S.palette=="colors"));
  $("palc").classList.toggle("hide",!pc);$("inc").classList.toggle("hide",!INT[e]);$("inl").textContent=INT[e]||""}
 function render(s){S=s;$("pw").classList.toggle("on",s.on);$("rev").classList.toggle("on",s.reverse);
- $("mir").classList.toggle("on",s.mirror);
+ $("mir").classList.toggle("on",s.mirror);$("voi").classList.toggle("on",s.voice!==false);
  if(!busy){$("bri").value=Math.round(toPos(s.bri/255)*1000);$("sp").value=Math.round(toPos(s.speed/1000)*1000);
   $("col").value=hex(s.color);$("col2").value=hex(s.color2);$("pal").value=s.palette;$("in").value=s.intensity}
  $("briv").textContent=pct($("bri").value);$("spv").textContent=s.speed;$("inv").textContent=Math.round(s.intensity/2.55)+"%";
@@ -150,7 +152,7 @@ $("geo").onclick=()=>{if(!window.isSecureContext||!navigator.geolocation)
   return alert("Tarayıcı konumu yalnızca HTTPS üzerinden verir. Tailscale adresinden (:8443) açın ya da enlem/boylamı elle girin.");
  navigator.geolocation.getCurrentPosition(p=>capi({lat:+p.coords.latitude.toFixed(4),lon:+p.coords.longitude.toFixed(4),variant:"auto"}),
   e=>alert("Konum alınamadı: "+e.message),{timeout:15000})};
-$("pw").onclick=()=>api({on:!S.on});$("rev").onclick=()=>api({reverse:!S.reverse});$("mir").onclick=()=>api({mirror:!S.mirror});
+$("pw").onclick=()=>api({on:!S.on});$("rev").onclick=()=>api({reverse:!S.reverse});$("mir").onclick=()=>api({mirror:!S.mirror});$("voi").onclick=()=>api({voice:S.voice===false});
 $("bri").oninput=e=>{$("briv").textContent=pct(e.target.value);send({bri:Math.max(1,Math.round(toVal(e.target.value/1000)*255)),on:true})};
 $("sp").oninput=e=>{const v=Math.round(toVal(e.target.value/1000)*1000);$("spv").textContent=v;send({speed:v})};
 $("in").oninput=e=>{$("inv").textContent=Math.round(e.target.value/2.55)+"%";send({intensity:+e.target.value})};

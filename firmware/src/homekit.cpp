@@ -126,8 +126,29 @@ struct SpeedFan : Service::Fan {
   }
 };
 
+// MiniBeyaz spoken announcements + reminders (the flag lives on the device; the server obeys it).
+struct VoiceSwitch : Service::Switch {
+  SpanCharacteristic* power;
+
+  VoiceSwitch() {
+    power = new Characteristic::On(app::voice());
+    new Characteristic::ConfiguredName("Sesli Duyurular");
+  }
+
+  boolean update() override {
+    JsonDocument req;
+    req["voice"] = power->getNewVal<bool>();
+    return apply(req);
+  }
+
+  void push() {
+    if (power->getVal<bool>() != app::voice()) power->setVal(app::voice());
+  }
+};
+
 Light* light = nullptr;
 SpeedFan* fan = nullptr;
+VoiceSwitch* voiceSw = nullptr;
 std::vector<EffectSwitch*> switches;
 
 }  // namespace
@@ -158,10 +179,12 @@ void begin(const char* ssid, const char* pass) {
   };
   for (auto& s : kSwitches) switches.push_back(new EffectSwitch(s.fx, s.label));
   fan = new SpeedFan();
+  voiceSw = new VoiceSwitch();
 }
 
 void loop() {
   homeSpan.poll();
+  if (voiceSw) voiceSw->push();  // not part of LedState, so checked on its own
   const LedState& s = app::state();
   if (!light || (haveSynced && sameState(s, lastSynced))) return;
   light->push(s);

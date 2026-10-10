@@ -63,6 +63,7 @@ void writeState(JsonObject o) {
   o["palette"] = kPalettes[s.palette];
   o["reverse"] = s.reverse;
   o["mirror"] = s.mirror;
+  o["voice"] = app::voice();
   if (uint32_t t = app::timerRemaining()) o["timer_s"] = t;
   if (s.probe >= 0) o["probe"] = s.probe;
   o["count"] = c.count;
@@ -131,6 +132,7 @@ void doSet(JsonObjectConst req, JsonDocument& resp) {
   }
   if (req["reverse"].is<bool>()) s.reverse = req["reverse"];
   if (req["mirror"].is<bool>()) s.mirror = req["mirror"];
+  if (req["voice"].is<bool>()) app::setVoice(req["voice"]);
   if (!req["probe"].isNull()) s.probe = req["probe"].is<int>() ? max(-1, req["probe"].as<int>()) : -1;
 
   if (req["count"].is<int>()) { c.count = constrain(req["count"].as<int>(), 1, LED_MAX); cfgChanged = true; }

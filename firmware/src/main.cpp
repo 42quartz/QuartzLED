@@ -22,6 +22,7 @@ LedConfig gConfig;
 uint32_t stateDirtyAt = 0;
 uint32_t rebootAt = 0;
 uint32_t timerOffAt = 0;
+bool gVoice = true;
 String lineBuf;
 
 constexpr uint32_t kSaveDelayMs = 3000;  // debounce flash writes while sliders move
@@ -90,6 +91,14 @@ void commitConfig(const LedConfig& c) {
 
 void requestReboot() { rebootAt = millis() + 300; }
 
+bool voice() { return gVoice; }
+
+void setVoice(bool on) {
+  if (on == gVoice) return;
+  gVoice = on;
+  storage::saveVoice(on);
+}
+
 void setTimer(uint16_t minutes) { timerOffAt = minutes ? (millis() + minutes * 60000UL) | 1 : 0; }
 
 uint32_t timerRemaining() {
@@ -104,6 +113,7 @@ void setup() {
   storage::begin();
   uint32_t boots = storage::bumpBootCount();
   storage::load(gState, gConfig);
+  gVoice = storage::loadVoice();
   presets::begin();
   circadian::begin();
 

@@ -34,6 +34,10 @@ void saveConfig(const LedConfig& c) {
   prefs.putBytes("cfg", buf, sizeof(buf));
 }
 
+bool loadVoice() { return prefs.getBool("voice", true); }
+
+void saveVoice(bool on) { prefs.putBool("voice", on); }
+
 uint32_t bumpBootCount() {
   uint32_t n = prefs.getUInt("boots", 0) + 1;
   prefs.putUInt("boots", n);
