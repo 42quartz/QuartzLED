@@ -12,6 +12,7 @@
 #include "led_engine.h"
 #include "mqtt.h"
 #include "net.h"
+#include "pairing.h"
 #include "presets.h"
 #include "storage.h"
 
@@ -34,6 +35,7 @@ const char kHelp[] =
     "#           preset NAME | save NAME | delete NAME | timer MIN | sunrise MIN | sunset MIN | circadian\n"
     "#           mqtt (status; set via JSON {\"cmd\":\"mqtt\",\"host\":..,\"user\":..,\"pass\":..})\n"
     "#           wifi (status) | forget | credentials: tools/ledctl.py wifi-setup\n"
+    "#           pairing (JSON only): {\"cmd\":\"esle\",\"anahtar\":..,\"ota\":..,\"homekit\":..} | {\"cmd\":\"esle\",\"sifirla\":true}\n"
     "#           or a JSON line: {\"v\":1,\"cmd\":\"set\",\"color\":[255,0,0]}\n";
 
 void reply(JsonDocument& resp) {
@@ -116,6 +118,7 @@ void setup() {
   gVoice = storage::loadVoice();
   presets::begin();
   circadian::begin();
+  pairing::begin();
 
   led::begin(gConfig);
   led::setState(gState);

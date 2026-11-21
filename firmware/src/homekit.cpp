@@ -2,10 +2,13 @@
 
 #include <ArduinoJson.h>
 #include <HomeSpan.h>
+#include <MD5Builder.h>
+#include <nvs.h>
 
 #include "app.h"
 #include "color.h"
 #include "commands.h"
+#include "pairing.h"
 
 namespace homekit {
 namespace {
@@ -157,14 +160,35 @@ void begin(const char* ssid, const char* pass) {
   homeSpan.setLogLevel(0);
   homeSpan.setSerialInputDisable(true);  // our JSON shell owns Serial
   homeSpan.setPortNum(1201);             // port 80 is the HTTP API
-  homeSpan.setHostNameSuffix("");        // -> quartzled.local
-  homeSpan.setPairingCode(HOMEKIT_CODE);
+  homeSpan.setHostNameSuffix("");        // host name is set in full below
+  if (pairing::homekitCode().length()) homeSpan.setPairingCode(pairing::homekitCode().c_str());
   homeSpan.setQRID("QZLD");
   homeSpan.setSketchVersion(FW_VERSION);
-  homeSpan.enableOTA(OTA_PASSWORD);
+  if (pairing::otaPassword().length()) {
+    // HomeSpan's setPassword() caps at 32 chars but ArduinoOTA only compares MD5(password). Store the
+    // hash where HomeSpan's 'O' command keeps it (NVS "OTA"/"OTADATA"); enableOTA(true) loads it, so
+    // any length works.
+    MD5Builder md5;
+    md5.begin();
+    md5.add(pairing::otaPassword());
+    md5.calculate();
+    char hash[33], stored[33] = "";
+    md5.getChars(hash);
+    nvs_handle_t h;
+    if (nvs_open("OTA", NVS_READWRITE, &h) == ESP_OK) {
+      size_t len = sizeof(stored);
+      if (nvs_get_str(h, "OTADATA", stored, &len) != ESP_OK || strcmp(stored, hash)) {
+        nvs_set_str(h, "OTADATA", hash);
+        nvs_commit(h);
+      }
+      nvs_close(h);
+      homeSpan.enableOTA(true);
+    }
+  }
   if (ssid && *ssid) homeSpan.setWifiCredentials(ssid, pass ? pass : "");
 
-  homeSpan.begin(Category::Lighting, "QuartzLED", "quartzled", "QuartzLED");
+  homeSpan.begin(Category::Lighting, "QuartzLED", pairing::hostName().c_str(), "QuartzLED");
+  if (pairing::takeUnpairRequest()) homeSpan.processSerialCommand("U");  // set by esle / sifirla
 
   new SpanAccessory();
   new Service::AccessoryInformation();

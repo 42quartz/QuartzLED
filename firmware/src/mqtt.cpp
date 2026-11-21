@@ -225,7 +225,7 @@ void onMessage(char* t, uint8_t* payload, unsigned int len) {
     resp["error"] = "bad json";
   } else {
     const char* cmd = req["cmd"] | "set";
-    if (!strcmp(cmd, "wifi") || !strcmp(cmd, "mqtt") || !strcmp(cmd, "homekit")) {
+    if (!strcmp(cmd, "wifi") || !strcmp(cmd, "mqtt") || !strcmp(cmd, "homekit") || !strcmp(cmd, "esle") || !strcmp(cmd, "reboot")) {
       resp["error"] = "not allowed over mqtt";
     } else {
       if (req["source"].isNull()) req["source"] = "mqtt";

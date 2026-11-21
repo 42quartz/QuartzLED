@@ -111,8 +111,13 @@ function render(s){S=s;$("pw").classList.toggle("on",s.on);$("rev").classList.to
  $("briv").textContent=pct($("bri").value);$("spv").textContent=s.speed;$("inv").textContent=Math.round(s.intensity/2.55)+"%";
  $("tmv").textContent=s.timer_s?mmss(s.timer_s)+" sonra":"kapalı";
  for(const b of $("fx").children)b.classList.toggle("on",b.dataset.k==s.effect);vis()}
-async function api(body,cmd="set"){const r=await fetch("/api",body?{method:"POST",headers:{"Content-Type":"application/json"},
- body:JSON.stringify(Object.assign({v:1,cmd,source:"web"},body))}:{});const j=await r.json();
+// Quartz uygulamasıyla eşlenmiş kart bu sayfadan kontrol edilmez (istekler 401 döner).
+let kilitli=0;
+async function api(body,cmd="set"){if(kilitli)throw new Error("401");const h={};if(body)h["Content-Type"]="application/json";
+ const r=await fetch("/api",body?{method:"POST",headers:h,body:JSON.stringify(Object.assign({v:1,cmd,source:"web"},body))}:{headers:h});
+ if(r.status==401){kilitli=1;$("st").textContent="Bu ışık Quartz uygulamasına eşlendi; yalnızca Quartz uygulamasından kontrol edilir.";
+  document.querySelectorAll("button,input,select").forEach(e=>e.disabled=true);throw new Error("401")}
+ const j=await r.json();
  if(j.state)render(j.state);if(j.presets)presets(j.presets);$("st").textContent=j.error?("Hata: "+j.error):"";return j}
 function crender(c){C=c;$("arm").classList.toggle("on",c.armed);
  for(const b of $("var").children)b.classList.toggle("on",b.dataset.v==c.variant);

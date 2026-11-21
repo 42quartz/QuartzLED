@@ -9,6 +9,7 @@
 #include "commands.h"
 #include "events.h"
 #include "homekit.h"
+#include "pairing.h"
 #include "web_ui.h"
 
 // Wi-Fi association, mDNS and OTA are run by HomeSpan (homekit.cpp). This module stores the
@@ -16,7 +17,6 @@
 namespace net {
 namespace {
 
-constexpr const char* kHost = "quartzled.local";
 Preferences prefs;
 WebServer http(80);
 String ssid;
@@ -51,7 +51,7 @@ void onEvent(arduino_event_id_t id, arduino_event_info_t info) {
       ev["state"] = "connected";
       ev["ip"] = WiFi.localIP().toString();
       ev["rssi"] = WiFi.RSSI();
-      ev["host"] = kHost;
+      ev["host"] = pairing::hostName() + ".local";
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       connectedSince = 0;
@@ -66,7 +66,17 @@ void onEvent(arduino_event_id_t id, arduino_event_info_t info) {
   events::emit(ev);
 }
 
+void sendJson(int code, const char* body) {
+  http.sendHeader("Access-Control-Allow-Origin", "*");
+  http.send(code, "application/json", body);
+}
+
 void handleApi() {
+  // Paired boards (the Quartz app stored an anahtar over USB) answer only callers that know it.
+  if (pairing::paired() && !pairing::checkKey(http.header("X-Quartz-Anahtar").c_str())) {
+    sendJson(401, "{\"error\":\"anahtar gerekli\"}");
+    return;
+  }
   JsonDocument req, resp;
   if (http.method() == HTTP_GET) {
     req["v"] = 1;
@@ -80,13 +90,15 @@ void handleApi() {
     }
   }
   const char* cmd = req["cmd"] | "set";
-  if (!strcmp(cmd, "wifi") || !strcmp(cmd, "reboot")) {  // USB-only for now
-    http.send(403, "application/json", "{\"error\":\"not allowed over http\"}");
+  if (!strcmp(cmd, "wifi") || !strcmp(cmd, "reboot") || !strcmp(cmd, "esle")) {  // USB-only
+    sendJson(403, "{\"error\":\"not allowed over http\"}");
     return;
   }
-  // Destructive HomeKit ops and MQTT credentials over the network need the OTA password.
-  if ((!strcmp(cmd, "homekit") || !strcmp(cmd, "mqtt")) && strcmp(req["key"] | "", OTA_PASSWORD) != 0) {
-    http.send(403, "application/json", "{\"error\":\"key required\"}");
+  // Destructive HomeKit ops and MQTT credentials over the network need the (effective) OTA password;
+  // with none configured they are USB-only.
+  if ((!strcmp(cmd, "homekit") || !strcmp(cmd, "mqtt")) &&
+      (pairing::otaPassword().isEmpty() || !pairing::equals(req["key"] | "", pairing::otaPassword().c_str()))) {
+    sendJson(403, "{\"error\":\"key required\"}");
     return;
   }
   if (req["source"].isNull()) req["source"] = "http";
@@ -102,11 +114,13 @@ void startHttp() {
   http.on("/api", HTTP_POST, handleApi);
   http.on("/api", HTTP_OPTIONS, [] {
     http.sendHeader("Access-Control-Allow-Origin", "*");
-    http.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+    http.sendHeader("Access-Control-Allow-Headers", "Content-Type, X-Quartz-Anahtar");
     http.send(204);
   });
   http.on("/", HTTP_GET, [] { http.send_P(200, "text/html; charset=utf-8", kWebUi); });
   http.onNotFound([] { http.send(404, "text/plain", "QuartzLED - UI: /  API: /api\n"); });
+  static const char* kHeaders[] = {"X-Quartz-Anahtar"};  // WebServer drops headers it was not told to keep
+  http.collectHeaders(kHeaders, 1);
   http.begin();
   MDNS.addService("http", "tcp", 80);  // MDNS itself was started by HomeSpan
   MDNS.addServiceTxt("http", "tcp", "api", "/api");
@@ -155,7 +169,7 @@ void status(JsonObject out) {
   if (connected()) {
     out["ip"] = WiFi.localIP().toString();
     out["rssi"] = WiFi.RSSI();
-    out["host"] = kHost;
+    out["host"] = pairing::hostName() + ".local";
     out["uptime_s"] = (millis() - connectedSince) / 1000;
   } else if (lastReason) {
     out["last_reason"] = lastReason;

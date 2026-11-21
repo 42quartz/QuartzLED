@@ -10,6 +10,7 @@
 #include "led_engine.h"
 #include "mqtt.h"
 #include "net.h"
+#include "pairing.h"
 #include "presets.h"
 
 namespace commands {
@@ -215,6 +216,9 @@ void handle(JsonObjectConst req, JsonDocument& resp) {
     resp["heap_min"] = ESP.getMinFreeHeap();
     resp["uptime_s"] = millis() / 1000;
     resp["mac"] = WiFi.macAddress();
+    resp["cihaz"] = pairing::deviceId();  // "id" is the echoed request id
+    resp["host"] = pairing::hostName();
+    resp["eslesmis"] = pairing::paired();
     JsonArray fx = resp["effects"].to<JsonArray>();
     for (auto e : kEffects) fx.add(e);
     JsonArray pa = resp["palettes"].to<JsonArray>();
@@ -254,6 +258,7 @@ void handle(JsonObjectConst req, JsonDocument& resp) {
     writeState(resp["state"].to<JsonObject>());
   }
   else if (!strcmp(cmd, "wifi")) doWifi(req, resp);
+  else if (!strcmp(cmd, "esle")) pairing::command(req, resp);  // transports other than serial refuse it
   else if (!strcmp(cmd, "mqtt")) mqtt::configure(req, resp);
   else if (!strcmp(cmd, "homekit")) {
     if (req["unpair"] != true) { resp["error"] = "use {\"unpair\":true}"; return; }
