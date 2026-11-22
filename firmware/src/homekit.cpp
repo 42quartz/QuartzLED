@@ -164,25 +164,31 @@ void begin(const char* ssid, const char* pass) {
   if (pairing::homekitCode().length()) homeSpan.setPairingCode(pairing::homekitCode().c_str());
   homeSpan.setQRID("QZLD");
   homeSpan.setSketchVersion(FW_VERSION);
-  if (pairing::otaPassword().length()) {
+  {
     // HomeSpan's setPassword() caps at 32 chars but ArduinoOTA only compares MD5(password). Store the
     // hash where HomeSpan's 'O' command keeps it (NVS "OTA"/"OTADATA"); enableOTA(true) loads it, so
-    // any length works.
-    MD5Builder md5;
-    md5.begin();
-    md5.add(pairing::otaPassword());
-    md5.calculate();
-    char hash[33], stored[33] = "";
-    md5.getChars(hash);
+    // any length works. A distribution build without its own password keeps a hash set earlier (an
+    // owner build, or a pairing before an update), so a board updated over the air stays updatable.
     nvs_handle_t h;
     if (nvs_open("OTA", NVS_READWRITE, &h) == ESP_OK) {
+      char stored[33] = "";
       size_t len = sizeof(stored);
-      if (nvs_get_str(h, "OTADATA", stored, &len) != ESP_OK || strcmp(stored, hash)) {
-        nvs_set_str(h, "OTADATA", hash);
-        nvs_commit(h);
+      bool have = nvs_get_str(h, "OTADATA", stored, &len) == ESP_OK && stored[0];
+      if (pairing::otaPassword().length()) {
+        MD5Builder md5;
+        md5.begin();
+        md5.add(pairing::otaPassword());
+        md5.calculate();
+        char hash[33];
+        md5.getChars(hash);
+        if (!have || strcmp(stored, hash)) {
+          nvs_set_str(h, "OTADATA", hash);
+          nvs_commit(h);
+        }
+        have = true;
       }
       nvs_close(h);
-      homeSpan.enableOTA(true);
+      if (have) homeSpan.enableOTA(true);
     }
   }
   if (ssid && *ssid) homeSpan.setWifiCredentials(ssid, pass ? pass : "");

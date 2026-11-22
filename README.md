@@ -78,10 +78,15 @@ compile-time value. With no OTA password at all, OTA stays **off** and the netwo
 commands are refused; with no valid HomeKit code the board uses a random, never-shown setup code, so it
 cannot be added to Home until it is paired.
 
-Pairing is **serial-only** (refused over HTTP with 403 and over MQTT); the board replies, then reboots:
+Pairing works over USB serial, or over HTTP when the request also carries `"key": "<OTA password>"`
+(whoever knows it can already flash any firmware); otherwise HTTP answers 403 and MQTT refuses it. A
+`genel` build keeps an OTA password hash already in NVS (`OTA`/`OTADATA`, e.g. from an owner build it was
+flashed over), so a board updated over the air stays updatable and can be paired over the network;
+`sifirla` clears that hash. The board replies, then reboots:
 
 ```json
 {"v":1,"cmd":"esle","id":1,"anahtar":"<64 lowercase hex>","ota":"<16-64 printable ASCII>","homekit":"<8 digits>"}
+{"v":1,"cmd":"esle","key":"<OTA password>","anahtar":"…","ota":"…","homekit":"…"}   // over HTTP
 {"v":1,"cmd":"esle","sifirla":true}
 ```
 
@@ -125,9 +130,9 @@ otomatik (konuma göre gerçek şafak/gün doğumu ve gün batımı/alacakaranl�
 
 Gizli bilgiler artık kartta çalışırken ayarlanır: Quartz uygulaması kartı USB üzerinden `{"cmd":"esle"}` ile
 eşler ve NVS'e (`quartz`: `anahtar`, `ota`, `hk`) bir API anahtarı, OTA parolası ve HomeKit kodu yazar; komut
-yalnızca seri porttan kabul edilir. Eşlenmiş kartta her `/api` isteği `X-Quartz-Anahtar` başlığını ister (yoksa
+seri porttan ya da HTTP'de OTA parolasıyla (`"key"`) kabul edilir; böylece kablosuz güncellenen kart ağdan da eşlenebilir. Eşlenmiş kartta her `/api` isteği `X-Quartz-Anahtar` başlığını ister (yoksa
 401); eşlenmiş kartta web arayüzü yalnızca "Quartz uygulamasından kontrol edilir" der. Eşleme eski HomeKit denetleyicilerini ve MQTT ayarını siler; genel kartlar `quartzled-xxxxxx.local` adını kullanır, eşlenmemiş genel kart HomeKit'e eklenemez. `pio run -e genel` hiçbir gizli bilgi içermeyen dağıtım
-yazılımını üretir (OTA, eşlenene kadar kapalıdır); `deneyap`/`ota` ortamları `secrets.ini` ile çalışmaya devam eder.
+yazılımını üretir (OTA, eşlenene kadar ya da NVS'te önceki bir derlemeden kalan parola özeti yoksa kapalıdır); `deneyap`/`ota` ortamları `secrets.ini` ile çalışmaya devam eder.
 
 ## License
 

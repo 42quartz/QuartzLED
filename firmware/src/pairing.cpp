@@ -1,7 +1,9 @@
 #include "pairing.h"
 
+#include <MD5Builder.h>
 #include <Preferences.h>
 #include <esp_system.h>
+#include <nvs.h>
 
 #include "app.h"
 #include <esp_random.h>
@@ -83,6 +85,26 @@ const String& deviceId() { return id; }
 const String& hostName() { return host; }
 bool takeUnpairRequest() { return unpairRequested; }
 
+bool otaKeyOk(const char* key) {
+  if (!key || !*key) return false;
+  if (ota.length()) return equals(key, ota.c_str());
+  char stored[33] = "";
+  nvs_handle_t h;
+  if (nvs_open("OTA", NVS_READONLY, &h) == ESP_OK) {
+    size_t len = sizeof(stored);
+    if (nvs_get_str(h, "OTADATA", stored, &len) != ESP_OK) stored[0] = 0;
+    nvs_close(h);
+  }
+  if (!stored[0]) return false;
+  MD5Builder md5;
+  md5.begin();
+  md5.add(String(key));
+  md5.calculate();
+  char hash[33];
+  md5.getChars(hash);
+  return equals(hash, stored);
+}
+
 bool validHomekitCode(const char* s) {
   if (!s || strlen(s) != 8) return false;
   bool allSame = true;
@@ -109,6 +131,13 @@ void command(JsonObjectConst req, JsonDocument& resp) {
     prefs.remove("anahtar");
     prefs.remove("ota");
     prefs.remove("hk");
+    // Back to a fresh distribution board: forget the OTA hash too (an owner build rewrites it on boot).
+    nvs_handle_t h;
+    if (nvs_open("OTA", NVS_READWRITE, &h) == ESP_OK) {
+      nvs_erase_key(h, "OTADATA");
+      nvs_commit(h);
+      nvs_close(h);
+    }
   } else {
     const char* a = req["anahtar"] | "";
     const char* o = req["ota"] | "";

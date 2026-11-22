@@ -258,7 +258,7 @@ void handle(JsonObjectConst req, JsonDocument& resp) {
     writeState(resp["state"].to<JsonObject>());
   }
   else if (!strcmp(cmd, "wifi")) doWifi(req, resp);
-  else if (!strcmp(cmd, "esle")) pairing::command(req, resp);  // transports other than serial refuse it
+  else if (!strcmp(cmd, "esle")) pairing::command(req, resp);  // HTTP needs the OTA password (net.cpp)
   else if (!strcmp(cmd, "mqtt")) mqtt::configure(req, resp);
   else if (!strcmp(cmd, "homekit")) {
     if (req["unpair"] != true) { resp["error"] = "use {\"unpair\":true}"; return; }

@@ -90,14 +90,14 @@ void handleApi() {
     }
   }
   const char* cmd = req["cmd"] | "set";
-  if (!strcmp(cmd, "wifi") || !strcmp(cmd, "reboot") || !strcmp(cmd, "esle")) {  // USB-only
+  if (!strcmp(cmd, "wifi") || !strcmp(cmd, "reboot")) {  // USB-only
     sendJson(403, "{\"error\":\"not allowed over http\"}");
     return;
   }
-  // Destructive HomeKit ops and MQTT credentials over the network need the (effective) OTA password;
-  // with none configured they are USB-only.
-  if ((!strcmp(cmd, "homekit") || !strcmp(cmd, "mqtt")) &&
-      (pairing::otaPassword().isEmpty() || !pairing::equals(req["key"] | "", pairing::otaPassword().c_str()))) {
+  // Pairing, destructive HomeKit ops and MQTT credentials over the network need the OTA password
+  // (pairing::otaKeyOk); with none set they are USB-only.
+  if ((!strcmp(cmd, "esle") || !strcmp(cmd, "homekit") || !strcmp(cmd, "mqtt")) &&
+      !pairing::otaKeyOk(req["key"] | "")) {
     sendJson(403, "{\"error\":\"key required\"}");
     return;
   }

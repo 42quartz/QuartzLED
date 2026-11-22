@@ -16,6 +16,10 @@ const String& hostName();           // mDNS name without .local: quartzled-xxxxx
 bool takeUnpairRequest();           // esle/sifirla asked to forget Home controllers on this boot
 bool equals(const char* a, const char* b);  // constant-time string compare
 bool validHomekitCode(const char* s);
-void command(JsonObjectConst req, JsonDocument& resp);  // "esle" — serial only (callers enforce)
+// The caller knows the OTA password: the effective one, or (distribution build flashed over an older
+// owner build) the one whose MD5 ArduinoOTA keeps in NVS "OTA"/"OTADATA". Whoever knows it can already
+// flash any firmware, so it may also pair over the network. Empty = nobody.
+bool otaKeyOk(const char* key);
+void command(JsonObjectConst req, JsonDocument& resp);  // "esle" — USB, or HTTP with otaKeyOk (net.cpp)
 
 }  // namespace pairing
